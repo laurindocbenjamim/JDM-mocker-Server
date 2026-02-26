@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DM-mocker Admin Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom scrollbar and minor tweaks */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        .token-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50 text-slate-800 font-sans h-screen flex flex-col">
+
+    <!-- Top Navigation Navbar -->
+    <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-3">
+            <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4">
+                </path>
+            </svg>
+            <h1 class="text-xl font-bold text-slate-800 tracking-tight">DM-mocker <span
+                    class="text-blue-600">Admin</span>
+            </h1>
+        </div>
+
+        <div class="flex items-center gap-4">
+            <div class="flex flex-col text-right">
+                <span id="nav-uuid-display" class="text-xs text-slate-500 font-mono font-medium hidden">UUID: Not
+                    Connected</span>
+                <span id="nav-role-display"
+                    class="text-[10px] uppercase font-bold tracking-wider text-slate-400 hidden">Role: None</span>
+            </div>
+            <button id="auth-modal-trigger"
+                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 transition-colors text-white text-sm font-semibold rounded-md shadow-sm">
+                Connect
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Layout Grid -->
+    <main class="flex-1 flex overflow-hidden">
+
+        <!-- Sidebar: Containers & Tables -->
+        <aside class="w-64 bg-white border-r border-slate-200 flex flex-col shrink-0 flex-1 h-full">
+            <div class="p-4 border-b border-slate-100 flex justify-between items-center">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500">Storage Explorer</h2>
+                <div class="flex gap-2">
+                    <button onclick="fetchIntrospection()" class="text-slate-400 hover:text-blue-600 transition-colors"
+                        title="Refresh">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                            xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+                            </path>
+                        </svg>
+                    </button>
+                    <button onclick="deleteAccountPrompt()" id="btn-delete-account"
+                        class="text-slate-400 hover:text-red-600 transition-colors hidden" title="Delete Account">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                            xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
+                            </path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <div id="session-box" class="px-4 py-3 border-b border-slate-100 bg-slate-50 hidden">
+                <p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">Session Status</p>
+                <div id="session-metrics" class="space-y-1"></div>
+            </div>
+
+            <div id="explorer-content" class="flex-1 overflow-y-auto p-3 space-y-4 text-sm">
+                <p class="text-slate-400 text-xs text-center mt-10">Connect your UUID to view storage</p>
+            </div>
+        </aside>
+
+        <!-- Content Area: Data Grid & JSON Preview -->
+        <section class="flex-1 flex flex-col bg-slate-50 overflow-hidden relative">
+
+            <!-- Context Header -->
+            <div class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shrink-0">
+                <div>
+                    <h3 id="table-title" class="text-lg font-bold text-slate-800">No Table Selected</h3>
+                    <p id="table-subtitle" class="text-xs text-slate-500 mt-1">Select a context from the sidebar</p>
+                </div>
+                <!-- Toggle Tabs for View Mode -->
+                <div class="flex p-1 bg-slate-100 rounded-lg shadow-inner">
+                    <button onclick="setViewMode('grid')" id="tab-grid"
+                        class="px-4 py-1.5 text-xs font-semibold rounded-md bg-white text-blue-600 shadow-sm transition-all">Data
+                        Grid</button>
+                    <button onclick="setViewMode('json')" id="tab-json"
+                        class="px-4 py-1.5 text-xs font-semibold rounded-md text-slate-500 hover:text-slate-700 transition-all">JSON
+                        Preview</button>
+                </div>
+            </div>
+
+            <!-- Scrollable Viewport -->
+            <div class="flex-1 overflow-auto p-6">
+                <!-- Data Grid View -->
+                <div id="view-grid"
+                    class="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden hidden">
+                    <table class="w-full text-left border-collapse">
+                        <thead id="grid-head"
+                            class="bg-slate-50 border-b border-slate-200 text-xs uppercase font-bold text-slate-500 tracking-wider">
+                            <!-- Injected Head -->
+                        </thead>
+                        <tbody id="grid-body" class="text-sm text-slate-700 divide-y divide-slate-100">
+                            <!-- Injected rows -->
+                        </tbody>
+                    </table>
+                    <div id="grid-empty" class="p-10 text-center text-slate-400 text-sm hidden">No records found.</div>
+                </div>
+
+                <!-- JSON Raw View -->
+                <div id="view-json" class="hidden h-full">
+                    <pre id="json-preview"
+                        class="bg-slate-900 border border-slate-800 text-green-400 p-4 rounded-lg text-xs font-mono overflow-auto shadow-inner w-full h-full block m-0">No data loaded.</pre>
+                </div>
+
+                <!-- Placeholder / Loading View -->
+                <div id="view-idle" class="flex flex-col items-center justify-center h-full text-slate-400">
+                    <svg class="w-16 h-16 mb-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                            d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10">
+                        </path>
+                    </svg>
+                    <p class="text-sm font-medium">Select a table to inspect data</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Authentication Modal Overlay -->
+    <div id="auth-modal"
+        class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden transform scale-95 transition-transform duration-200"
+            id="auth-modal-card">
+            <div class="px-6 py-5 border-b border-slate-100 flex justify-between items-center">
+                <h3 class="text-lg font-bold text-slate-800">Connection Details</h3>
+                <button id="auth-modal-close" class="text-slate-400 hover:text-slate-600"><svg class="w-5 h-5"
+                        fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                        </path>
+                    </svg></button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">x-user-id <span
+                            class="text-red-500">*</span></label>
+                    <input type="text" id="input-uuid" placeholder="e.g. e8a93a0b-..."
+                        class="token-input w-full px-4 py-2 bg-slate-50 border border-slate-300 rounded-md text-sm font-mono text-slate-700 placeholder-slate-400">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Bearer Token (Or
+                        Cookie)</label>
+                    <input type="password" id="input-token" placeholder="Optional if HttpOnly cookie used"
+                        class="token-input w-full px-4 py-2 bg-slate-50 border border-slate-300 rounded-md text-sm font-mono text-slate-700 placeholder-slate-400 flex-1">
+                </div>
+                <div class="pt-2">
+                    <button onclick="saveAuthAndFetch()"
+                        class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-md shadow-md shadow-blue-600/20 transition-all">Save
+                        & Connect</button>
+                    <p id="auth-error-msg" class="text-xs text-red-500 text-center mt-3 hidden font-medium"></p>
+                </div>
+            </div>
+
+            <div class="bg-slate-50 px-6 py-4 border-t border-slate-100 flex justify-between items-center">
+                <p class="text-xs text-slate-500">Need an ID?</p>
+                <button onclick="registerNewUser()" class="text-xs font-bold text-blue-600 hover:text-blue-800">Quick
+                    Register</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        // State
+        let currentAuth = { uuid: localStorage.getItem('jdm_uuid') || '', token: localStorage.getItem('jdm_token') || '' };
+        let introspectionData = null;
+        let currentViewMode = 'grid'; // grid | json
+        let activeContext = { container: null, table: null, records: null };
+
+        // DOM Elements
+        const modal = document.getElementById('auth-modal');
+        const modalCard = document.getElementById('auth-modal-card');
+        const inputUuid = document.getElementById('input-uuid');
+        const inputToken = document.getElementById('input-token');
+        const errorMsg = document.getElementById('auth-error-msg');
+
+        // Setup initial UI states
+        window.onload = () => {
+            if (currentAuth.uuid) {
+                inputUuid.value = currentAuth.uuid;
+                inputToken.value = currentAuth.token;
+                fetchIntrospection();
+            } else {
+                openModal();
+            }
+        };
+
+        // Modal Logic
+        document.getElementById('auth-modal-trigger').onclick = openModal;
+        document.getElementById('auth-modal-close').onclick = closeModal;
+
+        function openModal() {
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                modalCard.classList.remove('scale-95');
+            }, 10);
+            errorMsg.classList.add('hidden');
+        }
+
+        function closeModal() {
+            modal.classList.add('opacity-0');
+            modalCard.classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 200);
+        }
+
+        // Action: Register
+        async function registerNewUser() {
+            try {
+                const res = await fetch('/auth/register', { method: 'POST' });
+                const data = await res.json();
+
+                inputUuid.value = data['x-user-id'];
+
+                // Admin Login automatically to get token
+                const lRes = await fetch('/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-user-id': data['x-user-id'] },
+                    body: JSON.stringify({ role: 'admin', expiresIn: 3600000 })
+                });
+                const lData = await lRes.json();
+
+                inputToken.value = lData.token || '';
+            } catch (e) {
+                errorMsg.textContent = 'Registration failed: ' + e.message;
+                errorMsg.classList.remove('hidden');
+            }
+        }
+
+        // Action: Save & Fetch
+        async function saveAuthAndFetch() {
+            currentAuth.uuid = inputUuid.value.trim();
+            currentAuth.token = inputToken.value.trim();
+
+            localStorage.setItem('jdm_uuid', currentAuth.uuid);
+            localStorage.setItem('jdm_token', currentAuth.token);
+
+            errorMsg.classList.add('hidden');
+            const success = await fetchIntrospection();
+            if (success) closeModal();
+            else {
+                errorMsg.textContent = 'Connection failed. Check your UUID & Token.';
+                errorMsg.classList.remove('hidden');
+            }
+        }
+
+        // Action: Introspect Build Headers
+        function getHeaders() {
+            const h = { 'x-user-id': currentAuth.uuid };
+            if (currentAuth.token) h['Authorization'] = `Bearer ${currentAuth.token}`;
+            return h;
+        }
+
+        async function fetchIntrospection() {
+            if (!currentAuth.uuid) return false;
+
+            try {
+                const res = await fetch('/introspect', { headers: getHeaders() });
+                if (!res.ok) throw new Error(res.status);
+
+                introspectionData = await res.json();
+
+                // Update Nav display
+                document.getElementById('nav-uuid-display').textContent = `UUID: ${introspectionData.userId}`;
+                document.getElementById('nav-uuid-display').classList.remove('hidden');
+                document.getElementById('nav-role-display').textContent = `Role: ${introspectionData.role}`;
+                document.getElementById('nav-role-display').classList.remove('hidden');
+
+                document.getElementById('auth-modal-trigger').textContent = 'Settings';
+                document.getElementById('auth-modal-trigger').classList.replace('bg-blue-600', 'bg-slate-200');
+                document.getElementById('auth-modal-trigger').classList.replace('text-white', 'text-slate-800');
+
+                document.getElementById('btn-delete-account').classList.remove('hidden');
+
+                renderSessionBox();
+                renderSidebar();
+
+                // Re-render current active view if mapping exists
+                if (activeContext.container && activeContext.table) {
+                    const ctxData = introspectionData.storage[activeContext.container]?.[activeContext.table];
+                    if (ctxData) selectContext(activeContext.container, activeContext.table, ctxData.data);
+                    else showIdle();
+                }
+
+                return true;
+            } catch (e) {
+                console.error('Introspection Error:', e);
+                // Clear state on explicit failure to re-trigger login overlay mapping natively
+                localStorage.removeItem('jdm_uuid');
+                localStorage.removeItem('jdm_token');
+
+                document.getElementById('nav-uuid-display').classList.add('hidden');
+                document.getElementById('nav-role-display').classList.add('hidden');
+                errorMsg.textContent = 'Session Token Expired or Context missing. Please re-login.';
+                errorMsg.classList.remove('hidden');
+                openModal();
+                showIdle();
+                return false;
+            }
+        }
+
+        async function deleteAccountPrompt() {
+            if (confirm("Are you sure you want to permanently delete your UUID, files, and credentials? This cannot be undone.")) {
+                try {
+                    const res = await fetch('/auth/account', {
+                        method: 'DELETE',
+                        headers: getHeaders()
+                    });
+                    if (res.ok || res.status === 204) {
+                        alert("Account completely wiped out.");
+                        localStorage.removeItem('jdm_uuid');
+                        localStorage.removeItem('jdm_token');
+                        window.location.reload();
+                    } else {
+                        alert("Failed to delete account. Required role: admin or token mismatch.");
+                    }
+                } catch (e) { alert("Network Error"); }
+            }
+        }
+
+        function renderSessionBox() {
+            const box = document.getElementById('session-box');
+            const metrics = document.getElementById('session-metrics');
+
+            if (!introspectionData.sessions || introspectionData.sessions.length === 0) {
+                box.classList.add('hidden');
+                return;
+            }
+
+            box.classList.remove('hidden');
+            metrics.innerHTML = '';
+
+            introspectionData.sessions.forEach((sess, i) => {
+                const now = new Date();
+                const exp = new Date(sess.expires_at);
+                const isExpired = exp < now;
+
+                const badge = isExpired ?
+                    '<span class="px-1.5 py-0.5 rounded bg-red-100 text-red-600 font-bold ml-1">Expired</span>' :
+                    '<span class="px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-bold ml-1">Active</span>';
+
+                const isCurrent = currentAuth.token === sess.token;
+                const matchTag = isCurrent ? '<span class="text-blue-500 font-bold ml-1">(Current)</span>' : '';
+
+                const timeStr = exp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                metrics.innerHTML += `
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="text-slate-600 font-medium truncate w-24" title="${sess.token}">Token ${i + 1} ${matchTag}</span>
+                        <div class="flex items-center text-[10px]">
+                            <span class="text-slate-400 mr-1">Tills ${timeStr}</span>
+                            ${badge}
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        // Render Sidebar Menu
+        function renderSidebar() {
+            const explorer = document.getElementById('explorer-content');
+            explorer.innerHTML = '';
+
+            const storage = introspectionData.storage;
+            const containerNames = Object.keys(storage);
+
+            if (containerNames.length === 0) {
+                explorer.innerHTML = `<p class="text-slate-400 text-xs text-center mt-10">Folder empty.<br>No containers found.</p>`;
+                return;
+            }
+
+            containerNames.forEach(container => {
+                const tables = Object.keys(storage[container]);
+
+                // Container Header
+                const cDiv = document.createElement('div');
+                cDiv.innerHTML = `
+                    <div class="flex items-center gap-2 px-2 py-1.5 text-slate-800 font-bold mb-1">
+                        <svg class="w-4 h-4 text-slate-400" fill="currentColor" viewBox="0 0 20 20"><path d="M22 17a2 2 0 01-2 2H4a2 2 0 01-2-2V9a2 2 0 012-2h5l2 2h9a2 2 0 012 2v6z"/></svg>
+                        ${container}
+                    </div>
+                `;
+                explorer.appendChild(cDiv);
+
+                // Table List
+                const list = document.createElement('ul');
+                list.className = 'pl-6 space-y-1';
+
+                if (tables.length === 0) {
+                    list.innerHTML = `<li class="text-xs text-slate-400 py-1 pl-2">No tables</li>`;
+                } else {
+                    tables.forEach(table => {
+                        const recs = storage[container][table].data;
+                        const li = document.createElement('li');
+                        li.className = `px-2 py-1.5 rounded-md cursor-pointer hover:bg-blue-50 hover:text-blue-700 transition-colors flex justify-between items-center text-slate-600`;
+                        li.innerHTML = `
+                            <div class="flex items-center gap-2">
+                                <span class="bg-blue-100 text-blue-500 px-1 py-0.5 rounded text-[10px] font-bold">T</span>
+                                ${table}
+                            </div>
+                            <span class="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">${storage[container][table].count}</span>
+                        `;
+
+                        li.onclick = () => selectContext(container, table, recs);
+                        list.appendChild(li);
+                    });
+                }
+                explorer.appendChild(list);
+            });
+        }
+
+        // Actions: View Controller
+        function setViewMode(mode) {
+            currentViewMode = mode;
+
+            const tabGrid = document.getElementById('tab-grid');
+            const tabJson = document.getElementById('tab-json');
+            const viewGrid = document.getElementById('view-grid');
+            const viewJson = document.getElementById('view-json');
+
+            // Reset tab styles
+            tabGrid.className = 'px-4 py-1.5 text-xs font-semibold rounded-md text-slate-500 hover:text-slate-700 transition-all';
+            tabJson.className = 'px-4 py-1.5 text-xs font-semibold rounded-md text-slate-500 hover:text-slate-700 transition-all';
+
+            if (mode === 'grid') {
+                tabGrid.className = 'px-4 py-1.5 text-xs font-semibold rounded-md bg-white text-blue-600 shadow-sm transition-all';
+                viewGrid.classList.remove('hidden');
+                viewJson.classList.add('hidden');
+
+            } else {
+                tabJson.className = 'px-4 py-1.5 text-xs font-semibold rounded-md bg-white text-blue-600 shadow-sm transition-all';
+                viewGrid.classList.add('hidden');
+                viewJson.classList.remove('hidden');
+            }
+        }
+
+        function showIdle() {
+            document.getElementById('view-idle').classList.remove('hidden');
+            document.getElementById('view-grid').classList.add('hidden');
+            document.getElementById('view-json').classList.add('hidden');
+            document.getElementById('table-title').textContent = 'No Table Selected';
+            document.getElementById('table-subtitle').textContent = 'Select a context from the sidebar';
+
+            activeContext = { container: null, table: null, records: null };
+        }
+
+        function selectContext(container, table, records) {
+            activeContext = { container, table, records };
+
+            // Header
+            document.getElementById('table-title').textContent = table;
+            document.getElementById('table-subtitle').textContent = `Container: ${container} • ${records.length} records`;
+
+            // Hide Idle, enforce logic based on mode
+            document.getElementById('view-idle').classList.add('hidden');
+            setViewMode(currentViewMode);
+
+            // Build JSON
+            document.getElementById('json-preview').textContent = JSON.stringify(records, null, 2);
+
+            // Build Grid
+            const tHead = document.getElementById('grid-head');
+            const tBody = document.getElementById('grid-body');
+            const tEmpty = document.getElementById('grid-empty');
+
+            tHead.innerHTML = '';
+            tBody.innerHTML = '';
+
+            if (records.length === 0) {
+                tEmpty.classList.remove('hidden');
+                document.getElementById('grid-head').parentElement.classList.add('hidden');
+                return;
+            }
+
+            tEmpty.classList.add('hidden');
+            document.getElementById('grid-head').parentElement.classList.remove('hidden');
+
+            // Compute unified columns
+            const columnsSet = new Set();
+            records.forEach(r => Object.keys(r).forEach(k => columnsSet.add(k)));
+            const columns = Array.from(columnsSet);
+
+            // Head Row
+            let hRow = '<tr>';
+            columns.forEach(col => {
+                hRow += `<th class="px-4 py-3 text-left font-bold w-auto whitespace-nowrap">${col}</th>`;
+            });
+            hRow += '</tr>';
+            tHead.innerHTML = hRow;
+
+            // Body rows
+            let bRows = '';
+            records.forEach(rec => {
+                bRows += '<tr class="hover:bg-slate-50 transition-colors">';
+                columns.forEach(col => {
+                    const val = rec[col];
+                    const display = val === undefined || val === null ? '<span class="text-slate-300 italic">null</span>' :
+                        typeof val === 'object' ? JSON.stringify(val) : String(val);
+
+                    bRows += `<td class="px-4 py-3 border-t border-slate-100 whitespace-nowrap max-w-[200px] overflow-hidden text-ellipsis" title='${display}'>${display}</td>`;
+                });
+                bRows += '</tr>';
+            });
+            tBody.innerHTML = bRows;
+        }
+
+    </script>
+</body>
+
+</html>
