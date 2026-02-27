@@ -682,8 +682,16 @@
             const table = document.getElementById('schema-table').value.trim();
             const err = document.getElementById('schema-error');
 
+            const nameRegex = /^[a-zA-Z0-9_]+$/;
+
             if (!container || !table) {
                 err.textContent = 'Container and Table names are required.';
+                err.classList.remove('hidden');
+                return;
+            }
+
+            if (!nameRegex.test(container) || !nameRegex.test(table)) {
+                err.textContent = 'Container and Table names can only contain letters, numbers, and underscores (no spaces).';
                 err.classList.remove('hidden');
                 return;
             }
@@ -696,13 +704,20 @@
             }
 
             const mockData = {};
-            let hasValidField = false;
+            let hasValidField = true;
+            let fieldErrorStr = '';
+
             rows.forEach(row => {
                 const fieldName = row.querySelector('.schema-field').value.trim();
                 const type = row.querySelector('.schema-type').value;
 
                 if (fieldName) {
-                    hasValidField = true;
+                    if (!nameRegex.test(fieldName)) {
+                        hasValidField = false;
+                        fieldErrorStr = `Invalid field name "${fieldName}". Only letters, numbers, and underscores are allowed.`;
+                        return; // exit current loop iteration
+                    }
+
                     if (type === 'String') mockData[fieldName] = "sample_string";
                     else if (type === 'Number') mockData[fieldName] = 0;
                     else if (type === 'Boolean') mockData[fieldName] = false;
@@ -711,7 +726,13 @@
             });
 
             if (!hasValidField) {
-                err.textContent = 'Please provide valid field names for your columns.';
+                err.textContent = fieldErrorStr;
+                err.classList.remove('hidden');
+                return;
+            }
+
+            if (Object.keys(mockData).length === 0) {
+                err.textContent = 'Please provide at least one valid field name.';
                 err.classList.remove('hidden');
                 return;
             }
