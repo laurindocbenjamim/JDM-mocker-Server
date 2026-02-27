@@ -4,6 +4,7 @@ const express = require('express');
 const fs = require('fs').promises;
 const fsExtra = require('fs-extra');
 const path = require('path');
+const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const { v4: uuidv4 } = require('uuid');
 const jwt = require('jsonwebtoken'); // Use the library from package.json
@@ -165,6 +166,7 @@ const Storage = {
 // ----------------------------------------------------
 // Express Middleware
 // ----------------------------------------------------
+app.use(cors());
 app.use(express.json({ limit: '5mb' }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -234,8 +236,12 @@ app.post('/auth/login', async (req, res) => {
     const userId = req.headers['x-user-id'];
     if (!userId) return res.status(400).json({ error: 'x-user-id header required' });
 
-    const role = req.body.role === 'admin' ? 'admin' : 'viewer';
-    const expiresIn = req.body.expiresIn || 3600 * 1000;
+    const requestedRole = (req.body.role || '').toLowerCase();
+    const role = requestedRole === 'admin' ? 'admin' : 'viewer';
+
+    // Default expiration from env or 1 hour
+    const defaultExpire = parseInt(process.env.SESSION_EXPIRE, 10) || (3600 * 1000);
+    const expiresIn = req.body.expiresIn || defaultExpire;
 
     // Create a secure JWT instead of random hex 
     const token = jwt.sign({ userId, role }, JWT_SECRET, { expiresIn: `${expiresIn}ms` });

@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JDM Test Client</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <aside>
+        <div class="brand">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path
+                    d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z">
+                </path>
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                <line x1="12" y1="22.08" x2="12" y2="12"></line>
+            </svg>
+            <span>JDM TESTER</span>
+        </div>
+
+        <div class="nav-section">
+            <p class="nav-label">Identity</p>
+            <div class="nav-item active" onclick="showView('auth')">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+                Authentication
+            </div>
+            <div id="nav-storage" class="nav-item" onclick="showView('storage')">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 2h9a2 2 0 0 1 2 2v12z"></path>
+                </svg>
+                Storage Explorer
+            </div>
+        </div>
+
+        <div class="nav-section" id="active-user-info">
+            <p class="nav-label">Active Session</p>
+            <div style="padding: 1rem; background: #f8fafc; border-radius: 8px; border: 1px solid var(--border);">
+                <p style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.5rem;">User UUID:</p>
+                <p id="display-uuid"
+                    style="font-family: 'Fira Code', monospace; font-size: 0.75rem; word-break: break-all;">None</p>
+                <hr style="margin: 0.75rem 0; border: none; border-top: 1px solid var(--border);">
+                <p style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.5rem;">Role:</p>
+                <p id="display-role" style="font-weight: 700; font-size: 0.8rem; color: var(--primary);">N/A</p>
+            </div>
+        </div>
+    </aside>
+
+    <main>
+        <!-- Auth View -->
+        <div id="view-auth" class="content-view">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                <section class="card">
+                    <h2>Register New Account</h2>
+                    <p style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 1.5rem;">Create a fresh
+                        identity on the server.</p>
+                    <button class="btn btn-primary" onclick="handleRegister()">
+                        Create Identity
+                    </button>
+                </section>
+
+                <section class="card">
+                    <h2>Login / Authentication</h2>
+                    <p style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 1.5rem;">Obtain a JWT session
+                        token.</p>
+                    <div class="form-group">
+                        <label>Role</label>
+                        <select id="login-role">
+                            <option value="admin">Admin (Full Access)</option>
+                            <option value="viewer">Viewer (Read Only)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Expires In (ms)</label>
+                        <input type="number" id="login-expires" value="3600000" placeholder="e.g. 3600000">
+                    </div>
+                    <button class="btn btn-primary" onclick="handleLogin()">Login to Server</button>
+                </section>
+            </div>
+
+            <section class="card" style="margin-top: 2rem;">
+                <h2>Direct API Access (Configuration)</h2>
+                <div class="form-group">
+                    <label>Force User ID Header (x-user-id)</label>
+                    <input type="text" id="cfg-user-id" placeholder="Paste UUID here...">
+                </div>
+                <div class="form-group">
+                    <label>Force API Key Header (x-api-key)</label>
+                    <input type="text" id="cfg-api-key" placeholder="Paste UUID here for direct access...">
+                </div>
+                <div class="form-group">
+                    <label>Manual Bearer Token</label>
+                    <input type="text" id="cfg-token" placeholder="Paste JWT token here...">
+                </div>
+                <button class="btn btn-secondary" onclick="saveConfig()">Apply to Session</button>
+            </section>
+        </div>
+
+        <!-- Storage View -->
+        <div id="view-storage" class="content-view hidden">
+            <div class="card-header">
+                <h2>Storage Explorer</h2>
+                <button class="btn btn-primary btn-sm" onclick="fetchIntrospect()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="23 4 23 10 17 10"></polyline>
+                        <polyline points="1 20 1 14 7 14"></polyline>
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                    </svg>
+                    Refresh
+                </button>
+            </div>
+
+            <div id="storage-grid"
+                style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem;">
+                <!-- Containers will be dynamic -->
+            </div>
+
+            <div class="card" style="margin-top: 2rem;">
+                <h2>Create Container</h2>
+                <div class="form-group" style="display: flex; gap: 1rem; align-items: flex-end;">
+                    <div style="flex: 1;">
+                        <label>Container Name</label>
+                        <input type="text" id="new-container-name" placeholder="e.g. products-db">
+                    </div>
+                    <div>
+                        <label>Initial Table</label>
+                        <input type="text" id="new-container-table" placeholder="e.g. items">
+                    </div>
+                    <button class="btn btn-primary" onclick="createContainer()">Create</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Table Data View -->
+        <div id="view-data" class="content-view hidden">
+            <div class="card-header">
+                <div>
+                    <h2 id="table-title">Table: users</h2>
+                    <p id="table-subtitle" style="font-size: 0.8rem; color: var(--text-muted);">Container: local-db</p>
+                </div>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="btn btn-secondary" onclick="showView('storage')">Back</button>
+                    <button class="btn btn-primary" onclick="openCreateModal()">Add Record</button>
+                </div>
+            </div>
+
+            <div class="card" style="padding: 0; overflow: hidden;">
+                <table>
+                    <thead id="data-thead"></thead>
+                    <tbody id="data-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Console Terminal -->
+    <div id="log-panel">
+        <div class="log-header">
+            <span>NETWORK CONSOLE</span>
+            <span onclick="clearLogs()" style="cursor:pointer">Clear</span>
+        </div>
+        <div id="logs" class="log-content">
+            <div class="log-entry">Waiting for requests...</div>
+        </div>
+    </div>
+
+    <!-- Modals (Simple ones for now) -->
+    <div id="modal-container" class="hidden"
+        style="position:fixed; inset:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:2000;">
+        <div class="card" style="width: 500px; background: white;">
+            <h2 id="modal-title">Add Record</h2>
+            <hr style="margin: 1rem 0; border: none; border-top: 1px solid var(--border);">
+            <div id="modal-fields"></div>
+            <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1.5rem;">
+                <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                <button id="modal-confirm" class="btn btn-primary">Save Record</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
