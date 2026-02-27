@@ -4,6 +4,7 @@ const express = require('express');
 const fs = require('fs').promises;
 const fsExtra = require('fs-extra');
 const path = require('path');
+const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const { v4: uuidv4 } = require('uuid');
 const jwt = require('jsonwebtoken'); // Use the library from package.json
@@ -165,11 +166,44 @@ const Storage = {
 // ----------------------------------------------------
 // Express Middleware
 // ----------------------------------------------------
+app.use(cors());
 app.use(express.json({ limit: '5mb' }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // JWT Authentication Middleware
+const renderError = (res, status, message) => {
+    if (res.req.headers['accept']?.includes('text/html')) {
+        return res.status(status).send(`
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <title>Unauthorized - JDM Mocker</title>
+                <style>
+                    body { background: #0f172a; color: #f8fafc; font-family: 'Inter', system-ui, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+                    .card { background: #1e293b; padding: 2.5rem; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); text-align: center; max-width: 450px; border: 1px solid #334155; }
+                    h1 { color: #f87171; font-size: 1.75rem; margin-bottom: 1rem; font-weight: 800; }
+                    p { color: #94a3b8; line-height: 1.6; font-size: 0.95rem; }
+                    .code { background: #0f172a; padding: 1.25rem; border-radius: 10px; font-family: 'Fira Code', monospace; color: #38bdf8; margin: 1.5rem 0; word-break: break-all; border: 1px solid #1e293b; font-size: 0.85rem; }
+                    .btn { display: inline-block; background: #3b82f6; color: white; padding: 0.75rem 1.5rem; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 1rem; transition: background 0.2s; }
+                    .btn:hover { background: #2563eb; }
+                </style>
+            </head>
+            <body>
+                <div class="card">
+                    <h1>${status === 401 ? '🔒 Access Denied' : '⚠️ Error'}</h1>
+                    <p>It seems you are trying to access a protected JDM resource without a valid session.</p>
+                    <div class="code">{"error": "${message}"}</div>
+                    <a href="/index.html" class="btn">Go to Dashboard</a>
+                </div>
+            </body>
+            </html>
+        `);
+    }
+    return res.status(status).json({ error: message });
+};
+
 const authenticate = async (req, res, next) => {
     const authPaths = ['/auth/register', '/auth/login'];
     if (authPaths.includes(req.path)) return next();
@@ -182,7 +216,7 @@ const authenticate = async (req, res, next) => {
         req.cookies.auth_token;
 
     if (!userId) {
-        return res.status(401).json({ error: 'Unauthorized: Missing User ID' });
+        return renderError(res, 401, 'Unauthorized: Missing User ID');
     }
 
     // Allow terminal/API access if x-api-key matches userId
@@ -193,7 +227,7 @@ const authenticate = async (req, res, next) => {
     }
 
     if (!token) {
-        return res.status(401).json({ error: 'Unauthorized: Missing Token' });
+        return renderError(res, 401, 'Unauthorized: Missing Token');
     }
 
     try {
@@ -209,7 +243,7 @@ const authenticate = async (req, res, next) => {
         req.userRole = decoded.role;
         next();
     } catch (err) {
-        return res.status(401).json({ error: 'Invalid or expired session' });
+        return renderError(res, 401, 'Invalid or expired session');
     }
 };
 
@@ -234,8 +268,12 @@ app.post('/auth/login', async (req, res) => {
     const userId = req.headers['x-user-id'];
     if (!userId) return res.status(400).json({ error: 'x-user-id header required' });
 
-    const role = req.body.role === 'admin' ? 'admin' : 'viewer';
-    const expiresIn = req.body.expiresIn || 3600 * 1000;
+    const requestedRole = (req.body.role || '').toLowerCase();
+    const role = requestedRole === 'admin' ? 'admin' : 'viewer';
+
+    // Default expiration from env or 1 hour
+    const defaultExpire = parseInt(process.env.SESSION_EXPIRE, 10) || (3600 * 1000);
+    const expiresIn = req.body.expiresIn || defaultExpire;
 
     // Create a secure JWT instead of random hex 
     const token = jwt.sign({ userId, role }, JWT_SECRET, { expiresIn: `${expiresIn}ms` });
@@ -273,6 +311,7 @@ app.get('/introspect', async (req, res) => {
                     payload.storage[name][table] = {
                         count: Array.isArray(tableRecords) ? tableRecords.length : 0,
                         schema_preview: Array.isArray(tableRecords) && tableRecords.length > 0 ? Object.keys(tableRecords[0]) : [],
+                        schema: isStructured ? records._schema : null,
                         data: tableRecords
                     };
                 }
@@ -397,6 +436,34 @@ app.patch('/:container/:table/schema', async (req, res) => {
 
     await Storage.writeContainer(req.userId, container, data);
     res.json({ message: `Schema bulk update applied`, count: updatedRecords.length });
+});
+
+app.patch('/:container/:table/schema-definition', async (req, res) => {
+    const { container, table } = req.params;
+    const { name, type, remove } = req.body;
+
+    const data = await Storage.readContainer(req.userId, container);
+    if (!data || !data[table]) return res.status(404).json({ error: `Table '${table}' not found` });
+
+    if (!Array.isArray(data[table])) {
+        data[table]._schema = data[table]._schema || {};
+        if (remove) {
+            delete data[table]._schema[remove];
+        } else if (name && type) {
+            data[table]._schema[name] = type;
+        }
+    } else {
+        // Convert to structured if needed? or just fail for now
+        if (name && type) {
+            data[table] = {
+                _schema: { [name]: type },
+                records: data[table]
+            };
+        }
+    }
+
+    await Storage.writeContainer(req.userId, container, data);
+    res.json({ message: 'Schema definition updated successfully', schema: data[table]._schema || {} });
 });
 
 // ----------------------------------------------------
@@ -541,6 +608,32 @@ app.delete('/:container/:table/:id', async (req, res) => {
     records.splice(idx, 1);
     await Storage.writeContainer(req.userId, container, data);
     res.status(204).send();
+});
+
+app.patch('/:container/:table/:id', async (req, res) => {
+    const { container, table, id } = req.params;
+    const data = await Storage.readContainer(req.userId, container);
+
+    if (!data || !data[table]) return res.status(404).json({ error: 'Table not found' });
+
+    const isStructured = !Array.isArray(data[table]);
+    const schema = isStructured ? data[table]._schema : null;
+    const records = isStructured ? data[table].records : data[table];
+
+    const idx = records.findIndex(r => r.id === id);
+    if (idx === -1) return res.status(404).json({ error: 'Record not found' });
+
+    if (schema) {
+        delete req.body._schema;
+        // For PATCH, we only validate the fields present in req.body
+        const validationError = validateAgainstSchema(req.body, schema);
+        if (validationError) return res.status(400).json({ error: `Validation Error: ${validationError}` });
+    }
+
+    records[idx] = { ...records[idx], ...req.body, id }; // Ensure ID is preserved
+    await Storage.writeContainer(req.userId, container, data);
+
+    res.json(records[idx]);
 });
 
 // ----------------------------------------------------
