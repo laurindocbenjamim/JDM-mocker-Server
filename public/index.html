@@ -51,11 +51,16 @@
         </div>
 
         <div class="flex items-center gap-4">
-            <div class="flex flex-col text-right">
+            <div class="flex flex-col text-right items-end">
                 <span id="nav-uuid-display" class="text-xs text-slate-500 font-mono font-medium hidden">UUID: Not
                     Connected</span>
-                <span id="nav-role-display"
-                    class="text-[10px] uppercase font-bold tracking-wider text-slate-400 hidden">Role: None</span>
+                <div class="flex gap-2 items-center mt-1">
+                    <span id="nav-role-display"
+                        class="text-[10px] uppercase font-bold tracking-wider text-slate-400 hidden">Role: None</span>
+                    <span id="nav-token-status"
+                        class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-md hidden">Token
+                        Status</span>
+                </div>
             </div>
             <button id="auth-modal-trigger"
                 class="px-4 py-2 bg-blue-600 hover:bg-blue-700 transition-colors text-white text-sm font-semibold rounded-md shadow-sm">
@@ -72,6 +77,14 @@
             <div class="p-4 border-b border-slate-100 flex justify-between items-center">
                 <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500">Storage Explorer</h2>
                 <div class="flex gap-2">
+                    <button onclick="openSchemaBuilder()" class="text-slate-400 hover:text-blue-600 transition-colors"
+                        title="Visual Schema Builder">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                            xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4">
+                            </path>
+                        </svg>
+                    </button>
                     <button onclick="fetchIntrospection()" class="text-slate-400 hover:text-blue-600 transition-colors"
                         title="Refresh">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"
@@ -202,6 +215,73 @@
         </div>
     </div>
 
+    <!-- Visual Schema Builder Modal overlay -->
+    <div id="schema-modal"
+        class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden transform scale-95 transition-transform duration-200"
+            id="schema-modal-card">
+            <div class="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4">
+                        </path>
+                    </svg>
+                    Visual Schema Builder
+                </h3>
+                <button onclick="closeSchemaBuilder()" class="text-slate-400 hover:text-slate-600">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                        </path>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="p-6 overflow-y-auto max-h-[60vh]">
+                <div class="flex gap-4 mb-6">
+                    <div class="flex-1">
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Container
+                            Name <span class="text-red-500">*</span></label>
+                        <input type="text" id="schema-container" placeholder="e.g. users-db"
+                            class="token-input w-full px-4 py-2 bg-slate-50 border border-slate-300 rounded-md text-sm font-mono text-slate-700 placeholder-slate-400">
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Table Name
+                            <span class="text-red-500">*</span></label>
+                        <input type="text" id="schema-table" placeholder="e.g. profiles"
+                            class="token-input w-full px-4 py-2 bg-slate-50 border border-slate-300 rounded-md text-sm font-mono text-slate-700 placeholder-slate-400">
+                    </div>
+                </div>
+
+                <div class="mb-2 flex justify-between items-center mt-4">
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide">Columns Schema</label>
+                </div>
+
+                <div id="schema-rows" class="space-y-3 mb-4">
+                    <!-- Dynamic rows go here -->
+                </div>
+
+                <button onclick="addSchemaRow()"
+                    class="mt-2 flex items-center gap-2 px-4 py-2.5 border border-dashed border-slate-300 rounded-md text-sm font-medium text-slate-600 hover:text-blue-600 hover:border-blue-400 hover:bg-blue-50 transition-all w-full justify-center shadow-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    New Column Field
+                </button>
+            </div>
+
+            <div class="bg-slate-50 px-6 py-4 border-t border-slate-100 flex justify-end gap-3 items-center">
+                <span id="schema-error" class="text-xs text-red-500 font-medium hidden">Error here</span>
+                <button onclick="closeSchemaBuilder()"
+                    class="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-800 transition-colors">Cancel</button>
+                <button onclick="createTableFromSchema()"
+                    class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-md shadow-md shadow-blue-600/20 transition-all flex items-center gap-2">
+                    Create Table & Init Data
+                </button>
+            </div>
+        </div>
+    </div>
+
 
     <script>
         // State
@@ -309,6 +389,17 @@
                 document.getElementById('nav-role-display').textContent = `Role: ${introspectionData.role}`;
                 document.getElementById('nav-role-display').classList.remove('hidden');
 
+                // Token Badge update
+                const currentSess = introspectionData.sessions?.find(s => s.token === currentAuth.token);
+                if (currentSess) {
+                    const isExp = new Date(currentSess.expires_at) < new Date();
+                    const badgeEl = document.getElementById('nav-token-status');
+                    badgeEl.textContent = isExp ? 'Token: Expired' : 'Token: Active';
+                    badgeEl.className = `px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-md ${isExp ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}`;
+                } else {
+                    document.getElementById('nav-token-status').classList.add('hidden');
+                }
+
                 document.getElementById('auth-modal-trigger').textContent = 'Settings';
                 document.getElementById('auth-modal-trigger').classList.replace('bg-blue-600', 'bg-slate-200');
                 document.getElementById('auth-modal-trigger').classList.replace('text-white', 'text-slate-800');
@@ -334,6 +425,7 @@
 
                 document.getElementById('nav-uuid-display').classList.add('hidden');
                 document.getElementById('nav-role-display').classList.add('hidden');
+                document.getElementById('nav-token-status').classList.add('hidden');
                 errorMsg.textContent = 'Session Token Expired or Context missing. Please re-login.';
                 errorMsg.classList.remove('hidden');
                 openModal();
@@ -546,6 +638,110 @@
             });
             tBody.innerHTML = bRows;
         }
+
+        // --- Visual Schema Builder Logic ---
+        function openSchemaBuilder() {
+            document.getElementById('schema-modal').classList.remove('hidden');
+            setTimeout(() => {
+                document.getElementById('schema-modal').classList.remove('opacity-0');
+                document.getElementById('schema-modal-card').classList.remove('scale-95');
+            }, 10);
+            document.getElementById('schema-error').classList.add('hidden');
+            document.getElementById('schema-container').value = '';
+            document.getElementById('schema-table').value = '';
+            document.getElementById('schema-rows').innerHTML = '';
+            addSchemaRow(); // add initial blank row
+        }
+
+        function closeSchemaBuilder() {
+            document.getElementById('schema-modal').classList.add('opacity-0');
+            document.getElementById('schema-modal-card').classList.add('scale-95');
+            setTimeout(() => document.getElementById('schema-modal').classList.add('hidden'), 200);
+        }
+
+        function addSchemaRow() {
+            const row = document.createElement('div');
+            row.className = 'flex gap-3 items-center schema-row animate-[pulse_0.3s_ease-out_1]';
+            row.innerHTML = `
+                <input type="text" placeholder="Field Name (e.g. status)" class="schema-field flex-1 px-3 py-2 bg-white border border-slate-200 rounded-md text-sm font-mono text-slate-700 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 transition-all">
+                <select class="schema-type w-1/3 px-3 py-2 bg-white border border-slate-200 rounded-md text-sm text-slate-700 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 transition-all">
+                    <option value="String">String</option>
+                    <option value="Number">Number</option>
+                    <option value="Boolean">Boolean</option>
+                    <option value="Date">Date</option>
+                </select>
+                <button onclick="this.parentElement.remove()" class="p-2 text-slate-400 hover:text-red-500 transition-colors rounded-md hover:bg-red-50" title="Remove Field">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                </button>
+            `;
+            document.getElementById('schema-rows').appendChild(row);
+        }
+
+        async function createTableFromSchema() {
+            const container = document.getElementById('schema-container').value.trim();
+            const table = document.getElementById('schema-table').value.trim();
+            const err = document.getElementById('schema-error');
+
+            if (!container || !table) {
+                err.textContent = 'Container and Table names are required.';
+                err.classList.remove('hidden');
+                return;
+            }
+
+            const rows = document.querySelectorAll('.schema-row');
+            if (rows.length === 0) {
+                err.textContent = 'Please add at least one column.';
+                err.classList.remove('hidden');
+                return;
+            }
+
+            const mockData = {};
+            let hasValidField = false;
+            rows.forEach(row => {
+                const fieldName = row.querySelector('.schema-field').value.trim();
+                const type = row.querySelector('.schema-type').value;
+
+                if (fieldName) {
+                    hasValidField = true;
+                    if (type === 'String') mockData[fieldName] = "sample_string";
+                    else if (type === 'Number') mockData[fieldName] = 0;
+                    else if (type === 'Boolean') mockData[fieldName] = false;
+                    else if (type === 'Date') mockData[fieldName] = new Date().toISOString();
+                }
+            });
+
+            if (!hasValidField) {
+                err.textContent = 'Please provide valid field names for your columns.';
+                err.classList.remove('hidden');
+                return;
+            }
+
+            err.classList.add('hidden');
+
+            try {
+                const res = await fetch(`/${container}/${table}`, {
+                    method: 'POST',
+                    headers: { ...getHeaders(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify(mockData)
+                });
+
+                if (res.ok) {
+                    closeSchemaBuilder();
+                    await fetchIntrospection(); // refresh sidebar
+
+                    // Optional: automatically select the new table
+                    // We don't have the exact records array here, so fetch Introspection handles it.
+                } else {
+                    const errorData = await res.json();
+                    err.textContent = errorData.error || 'Failed to create table.';
+                    err.classList.remove('hidden');
+                }
+            } catch (e) {
+                err.textContent = 'Network error during table initialization.';
+                err.classList.remove('hidden');
+            }
+        }
+
 
     </script>
 </body>
