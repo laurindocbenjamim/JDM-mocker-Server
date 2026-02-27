@@ -311,6 +311,7 @@ app.get('/introspect', async (req, res) => {
                     payload.storage[name][table] = {
                         count: Array.isArray(tableRecords) ? tableRecords.length : 0,
                         schema_preview: Array.isArray(tableRecords) && tableRecords.length > 0 ? Object.keys(tableRecords[0]) : [],
+                        schema: isStructured ? records._schema : null,
                         data: tableRecords
                     };
                 }
@@ -435,6 +436,34 @@ app.patch('/:container/:table/schema', async (req, res) => {
 
     await Storage.writeContainer(req.userId, container, data);
     res.json({ message: `Schema bulk update applied`, count: updatedRecords.length });
+});
+
+app.patch('/:container/:table/schema-definition', async (req, res) => {
+    const { container, table } = req.params;
+    const { name, type, remove } = req.body;
+
+    const data = await Storage.readContainer(req.userId, container);
+    if (!data || !data[table]) return res.status(404).json({ error: `Table '${table}' not found` });
+
+    if (!Array.isArray(data[table])) {
+        data[table]._schema = data[table]._schema || {};
+        if (remove) {
+            delete data[table]._schema[remove];
+        } else if (name && type) {
+            data[table]._schema[name] = type;
+        }
+    } else {
+        // Convert to structured if needed? or just fail for now
+        if (name && type) {
+            data[table] = {
+                _schema: { [name]: type },
+                records: data[table]
+            };
+        }
+    }
+
+    await Storage.writeContainer(req.userId, container, data);
+    res.json({ message: 'Schema definition updated successfully', schema: data[table]._schema || {} });
 });
 
 // ----------------------------------------------------
@@ -579,6 +608,32 @@ app.delete('/:container/:table/:id', async (req, res) => {
     records.splice(idx, 1);
     await Storage.writeContainer(req.userId, container, data);
     res.status(204).send();
+});
+
+app.patch('/:container/:table/:id', async (req, res) => {
+    const { container, table, id } = req.params;
+    const data = await Storage.readContainer(req.userId, container);
+
+    if (!data || !data[table]) return res.status(404).json({ error: 'Table not found' });
+
+    const isStructured = !Array.isArray(data[table]);
+    const schema = isStructured ? data[table]._schema : null;
+    const records = isStructured ? data[table].records : data[table];
+
+    const idx = records.findIndex(r => r.id === id);
+    if (idx === -1) return res.status(404).json({ error: 'Record not found' });
+
+    if (schema) {
+        delete req.body._schema;
+        // For PATCH, we only validate the fields present in req.body
+        const validationError = validateAgainstSchema(req.body, schema);
+        if (validationError) return res.status(400).json({ error: `Validation Error: ${validationError}` });
+    }
+
+    records[idx] = { ...records[idx], ...req.body, id }; // Ensure ID is preserved
+    await Storage.writeContainer(req.userId, container, data);
+
+    res.json(records[idx]);
 });
 
 // ----------------------------------------------------

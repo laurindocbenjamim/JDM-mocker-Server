@@ -7,7 +7,8 @@ let state = {
     apiKey: localStorage.getItem('jdm_test_apiKey') || '',
     role: 'N/A',
     introspection: null,
-    activeContext: { container: '', table: '' }
+    activeContext: { container: '', table: '' },
+    editingId: null
 };
 
 // --- Initialization ---
@@ -51,11 +52,56 @@ async function api(path, options = {}) {
         const data = await response.json().catch(() => ({}));
 
         logRequest(options.method || 'GET', path, response.status, duration, data);
+
+        if (response.status >= 400) {
+            const errorMsg = data.error || response.statusText || 'Unknown Error';
+            showToast(`${errorMsg}`, 'error');
+        }
+
         return { status: response.status, data };
     } catch (err) {
         log(`❌ Error: ${err.message}`);
+        showToast(`Network Error: ${err.message}`, 'error');
         return { status: 500, data: { error: err.message } };
     }
+}
+
+function showToast(message, type = 'success') {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+
+    let icon = '✓';
+    if (type === 'error') icon = '✕';
+    if (type === 'warning') icon = '⚠';
+
+    toast.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <div style="width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgba(0,0,0,0.05); font-size: 0.7rem;">${icon}</div>
+            <span>${message}</span>
+        </div>
+    `;
+
+    container.appendChild(toast);
+    setTimeout(() => toast.classList.add('show'), 10);
+
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 500);
+    }, 6000);
+}
+
+function castValue(value, type) {
+    if (value === null || value === undefined) return value;
+    if (type === 'Boolean') {
+        if (typeof value === 'boolean') return value;
+        return value.toLowerCase() === 'true';
+    }
+    if (type === 'Number') return Number(value);
+    if (type === 'Date') return new Date(value).toISOString();
+    return value;
 }
 
 // --- Auth Actions ---
@@ -84,6 +130,7 @@ async function handleLogin() {
         localStorage.setItem('jdm_test_token', state.token);
         updateIdentityUI();
         fetchIntrospect();
+        showToast(`Welcome! Logged in as ${data.role}`);
     }
 }
 
@@ -154,7 +201,7 @@ function openCreateTableModal(container) {
     const modal = document.getElementById('modal-container');
     const fields = document.getElementById('modal-fields');
     document.getElementById('modal-title').innerText = `Create Table in ${container}`;
-
+    fields.scrollTop = 0; // Reset scroll
     fields.innerHTML = `
         <div class="form-group">
             <label>Table Name</label>
@@ -224,24 +271,47 @@ async function openSchemaModal() {
     const modal = document.getElementById('modal-container');
     const fields = document.getElementById('modal-fields');
     document.getElementById('modal-title').innerText = `Manage Columns: ${table}`;
+    fields.scrollTop = 0;
 
     fields.innerHTML = `
-        <div style="margin-bottom: 1rem;">
-            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">Current Columns:</p>
-            <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
-                ${schema.map(col => `
-                    <span class="badge badge-post" style="display:flex; align-items:center; gap:0.4rem;">
-                        ${col}
-                        ${col !== 'id' ? `<span onclick="deleteColumn('${col}')" style="cursor:pointer; font-weight:bold">×</span>` : ''}
-                    </span>
+        <div id="schema-error" class="error-msg hidden"></div>
+        <div style="margin-bottom: 1.5rem;">
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">Current Schema & Types:</p>
+            <div class="column-list">
+                ${Object.entries(dataObj.schema || {}).map(([col, type]) => `
+                    <div class="column-item">
+                        <div class="column-info">
+                            <span class="column-name">${col}</span>
+                            <span class="column-type">${type}</span>
+                        </div>
+                        ${col !== 'id' ? `
+                            <button class="btn-delete-icon" onclick="deleteColumn('${col}')" title="Delete Column">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                    <path d="M3 6h18m-2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                </svg>
+                            </button>
+                        ` : '<span style="font-size:0.7rem; color:var(--text-muted)">System</span>'}
+                    </div>
                 `).join('')}
+                ${(!dataObj.schema || Object.keys(dataObj.schema).length === 0) && schema.length > 0 ? `
+                    <p style="font-size: 0.7rem; color: var(--text-muted); margin: 0.5rem 0;">Preview from data (untyped):</p>
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                        ${schema.map(col => `<span class="badge badge-secondary" style="opacity:0.6">${col}</span>`).join('')}
+                    </div>
+                ` : ''}
             </div>
         </div>
         <hr style="margin: 1rem 0; border: none; border-top: 1px solid var(--border);">
         <div class="form-group">
             <label>Add New Column</label>
             <div style="display:flex; gap:0.5rem">
-                <input type="text" id="new-column-name" placeholder="column_name">
+                <input type="text" id="new-column-name" placeholder="Column Name" style="flex:2">
+                <select id="new-column-type" style="flex:1">
+                    <option value="String">String</option>
+                    <option value="Number">Number</option>
+                    <option value="Boolean">Boolean</option>
+                    <option value="Date">Date</option>
+                </select>
                 <button class="btn btn-secondary" onclick="addColumn()">Add</button>
             </div>
         </div>
@@ -253,41 +323,52 @@ async function openSchemaModal() {
 
 async function addColumn() {
     const colName = document.getElementById('new-column-name').value;
+    const colType = document.getElementById('new-column-type').value;
+    const errorEl = document.getElementById('schema-error');
+
     if (!colName) return;
+    errorEl.classList.add('hidden');
 
     const { container, table } = state.activeContext;
-    const dataObj = state.introspection.storage[container][table];
-    const currentSchema = dataObj.schema_preview || [];
 
-    if (currentSchema.includes(colName)) {
-        alert('Column already exists');
+    const { status, data } = await api(`/${container}/${table}/schema-definition`, {
+        method: 'PATCH',
+        body: JSON.stringify({ name: colName, type: colType })
+    });
+
+    if (status !== 200) {
+        errorEl.innerText = data.error || 'Failed to update schema';
+        errorEl.classList.remove('hidden');
         return;
     }
 
-    const newSchema = [...currentSchema, colName];
-    await api(`/${container}/${table}/schema`, {
-        method: 'PATCH',
-        body: JSON.stringify({ _schema_keys: newSchema })
-    });
-
+    showToast('Schema updated');
     await fetchIntrospect();
+    renderTable(); // Refresh background table
     openSchemaModal(); // Refresh modal
 }
 
 async function deleteColumn(colName) {
-    if (!confirm(`Delete column '${colName}'? This will NOT remove data from existing records until they are updated.`)) return;
+    if (!confirm(`Delete column '${colName}'? This will remove it from the validation schema.`)) return;
 
     const { container, table } = state.activeContext;
-    const dataObj = state.introspection.storage[container][table];
-    const currentSchema = dataObj.schema_preview || [];
+    const errorEl = document.getElementById('schema-error');
+    errorEl.classList.add('hidden');
 
-    const newSchema = currentSchema.filter(c => c !== colName);
-    await api(`/${container}/${table}/schema`, {
+    const { status, data } = await api(`/${container}/${table}/schema-definition`, {
         method: 'PATCH',
-        body: JSON.stringify({ _schema_keys: newSchema })
+        body: JSON.stringify({ remove: colName })
     });
 
+    if (status !== 200) {
+        errorEl.innerText = data.error || 'Failed to delete column';
+        errorEl.classList.remove('hidden');
+        return;
+    }
+
+    showToast(`Column '${colName}' deleted`);
     await fetchIntrospect();
+    renderTable(); // Refresh background table
     openSchemaModal(); // Refresh modal
 }
 
@@ -295,7 +376,13 @@ function renderTable() {
     const { container, table } = state.activeContext;
     const dataObj = state.introspection.storage[container][table];
     const records = dataObj.data || [];
-    const schema = dataObj.schema_preview || ['id']; // Fallback to id if no schema
+
+    // Combine formal schema keys with keys found in records
+    const schemaKeys = Array.from(new Set([
+        'id',
+        ...(dataObj.schema ? Object.keys(dataObj.schema) : []),
+        ...(dataObj.schema_preview || [])
+    ]));
 
     const thead = document.getElementById('data-thead');
     const tbody = document.getElementById('data-tbody');
@@ -305,7 +392,7 @@ function renderTable() {
 
     // Header
     const tr = document.createElement('tr');
-    schema.forEach(k => {
+    schemaKeys.forEach(k => {
         const th = document.createElement('th');
         th.innerText = k;
         tr.appendChild(th);
@@ -316,22 +403,44 @@ function renderTable() {
     thead.appendChild(tr);
 
     if (records.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="${schema.length + 1}" style="text-align:center; padding: 2rem; color: var(--text-muted)">No records found. Click 'Add Record' to start.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="${schemaKeys.length + 1}" style="text-align:center; padding: 2rem; color: var(--text-muted)">No records found. Click 'Add Record' to start.</td></tr>`;
         return;
     }
 
     // Body
     records.forEach(row => {
+        const isEditing = state.editingId === row.id;
         const tr = document.createElement('tr');
-        schema.forEach(k => {
+        if (isEditing) tr.className = 'editing-row';
+
+        schemaKeys.forEach(k => {
             const td = document.createElement('td');
-            td.innerText = row[k] !== undefined ? row[k] : '-';
+            if (isEditing && k !== 'id') {
+                const type = (dataObj.schema || {})[k] || 'String';
+                td.innerHTML = `<input type="text" class="inline-edit-input" data-edit-field="${k}" data-edit-type="${type}" value="${row[k] !== undefined ? row[k] : ''}">`;
+            } else {
+                td.innerText = row[k] !== undefined ? row[k] : '-';
+                if (!isEditing) {
+                    td.style.cursor = 'pointer';
+                    td.onclick = () => startEditing(row.id);
+                }
+            }
             tr.appendChild(td);
         });
+
         const td = document.createElement('td');
-        td.innerHTML = `
-            <button class="btn btn-secondary" style="padding:4px 8px" onclick="deleteRecord('${row.id}')">Delete</button>
-        `;
+        if (isEditing) {
+            td.innerHTML = `
+                <div style="display:flex; gap:0.4rem">
+                    <button class="btn btn-primary" style="padding:4px 8px; font-size:0.7rem" onclick="saveRecord('${row.id}')">Save</button>
+                    <button class="btn btn-secondary" style="padding:4px 8px; font-size:0.7rem" onclick="cancelEditing()">Cancel</button>
+                </div>
+            `;
+        } else {
+            td.innerHTML = `
+                <button class="btn btn-secondary" style="padding:4px 8px" onclick="deleteRecord('${row.id}')">Delete</button>
+            `;
+        }
         tr.appendChild(td);
         tbody.appendChild(tr);
     });
@@ -345,19 +454,37 @@ function openCreateModal() {
 
     const modal = document.getElementById('modal-container');
     const fields = document.getElementById('modal-fields');
+    document.getElementById('modal-title').innerText = 'Add Record';
+    fields.scrollTop = 0;
     fields.innerHTML = '';
 
-    // If we have a preview, use those fields. Otherwise just provide a JSON blob area or some defaults
-    const cols = preview.length > 0 ? preview.filter(k => k !== 'id') : ['name', 'value'];
+    // Use merged schema (formal schema + data preview keys)
+    const schemaKeys = Array.from(new Set([
+        ...(dataObj.schema ? Object.keys(dataObj.schema) : []),
+        ...(dataObj.schema_preview || [])
+    ])).filter(k => k !== 'id' && k !== '_init');
 
-    cols.forEach(col => {
-        fields.innerHTML += `
-            <div class="form-group">
-                <label>${col}</label>
-                <input type="text" data-field="${col}" placeholder="Enter ${col}...">
-            </div>
-        `;
-    });
+    if (schemaKeys.length === 0) {
+        fields.innerHTML = `<p style="color:var(--text-muted); font-size:0.8rem">No columns defined yet. Add some in 'Manage Columns' or just add 'name' and 'value' fields below.</p>`;
+        ['name', 'value'].forEach(col => {
+            fields.innerHTML += `
+                <div class="form-group">
+                    <label>${col}</label>
+                    <input type="text" data-field="${col}" placeholder="Enter ${col}...">
+                </div>
+            `;
+        });
+    } else {
+        schemaKeys.forEach(col => {
+            const type = (dataObj.schema || {})[col] || 'String';
+            fields.innerHTML += `
+                <div class="form-group">
+                    <label>${col} <span style="font-size:0.7rem; color:var(--text-muted)">(${type})</span></label>
+                    <input type="text" data-field="${col}" data-type="${type}" placeholder="Enter ${col}...">
+                </div>
+            `;
+        });
+    }
 
     document.getElementById('modal-confirm').onclick = handleCreateRecord;
     modal.classList.remove('hidden');
@@ -367,7 +494,7 @@ async function handleCreateRecord() {
     const { container, table } = state.activeContext;
     const body = {};
     document.querySelectorAll('[data-field]').forEach(input => {
-        body[input.dataset.field] = input.value;
+        body[input.dataset.field] = castValue(input.value, input.dataset.type);
     });
 
     const { status } = await api(`/${container}/${table}`, {
@@ -379,6 +506,7 @@ async function handleCreateRecord() {
         closeModal();
         await fetchIntrospect();
         renderTable();
+        showToast('Record created successfully');
     }
 }
 
@@ -387,6 +515,36 @@ async function deleteRecord(id) {
     await api(`/${container}/${table}/${id}`, { method: 'DELETE' });
     await fetchIntrospect();
     renderTable();
+}
+
+function startEditing(id) {
+    state.editingId = id;
+    renderTable();
+}
+
+function cancelEditing() {
+    state.editingId = null;
+    renderTable();
+}
+
+async function saveRecord(id) {
+    const { container, table } = state.activeContext;
+    const body = {};
+    document.querySelectorAll('.inline-edit-input').forEach(input => {
+        body[input.dataset.editField] = castValue(input.value, input.dataset.editType);
+    });
+
+    const { status, data } = await api(`/${container}/${table}/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(body)
+    });
+
+    if (status === 200) {
+        state.editingId = null;
+        await fetchIntrospect();
+        renderTable();
+        showToast('Record updated successfully');
+    }
 }
 
 function closeModal() {
