@@ -149,6 +149,7 @@ class JdmMockerTester {
             res = await this.request('/auth/update-uuid', { method: 'PATCH' });
             assert.strictEqual(res.status, 200, 'UUID rotate failed');
             this.userId = res.data['x-user-id'];
+            if (res.data.token) this.token = res.data.token; // Update token if provided
             assert.notStrictEqual(this.userId, oldUserId, 'UUID should change');
             console.log(` ✅ OK (Status: ${res.status}) - Response: ${JSON.stringify(res.data)}`);
 

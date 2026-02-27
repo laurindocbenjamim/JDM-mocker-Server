@@ -1,0 +1,15 @@
+# Exclude backup and test files
+server copy.js
+server copy 2.js
+package copy.json
+data/
+node_modules/
+.env
+test.js
+test-stress.js
+test-load.yml
+.git/
+.gitignore
+.gemini/
+brain/
+mangotin.png
