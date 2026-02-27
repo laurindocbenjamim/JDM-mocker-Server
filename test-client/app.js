@@ -129,19 +129,53 @@ function renderStorage() {
         card.innerHTML = `
             <div class="card-header">
                 <h3>${name}</h3>
-                <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem" onclick="deleteContainer('${name}')">Delete</button>
+                <div style="display:flex; gap:0.5rem">
+                    <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size:0.7rem" onclick="openCreateTableModal('${name}')">+ Table</button>
+                    <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem" onclick="deleteContainer('${name}')">Delete</button>
+                </div>
             </div>
             <div style="display:flex; flex-direction:column; gap:0.5rem;">
                 ${Object.keys(tables).map(t => `
-                    <div class="nav-item" onclick="viewTable('${name}', '${t}')" style="justify-content:space-between; margin:0">
+                    <div class="nav-item table-item" onclick="viewTable('${name}', '${t}')" style="justify-content:space-between; margin:0; position:relative">
                         <span>${t}</span>
-                        <span class="badge badge-get">${tables[t].count}</span>
+                        <div style="display:flex; align-items:center; gap:0.5rem">
+                            <span class="badge badge-get">${tables[t].count}</span>
+                            <button class="btn-icon-delete" onclick="event.stopPropagation(); deleteTable('${name}', '${t}')">×</button>
+                        </div>
                     </div>
                 `).join('')}
             </div>
         `;
         grid.appendChild(card);
     });
+}
+
+function openCreateTableModal(container) {
+    const modal = document.getElementById('modal-container');
+    const fields = document.getElementById('modal-fields');
+    document.getElementById('modal-title').innerText = `Create Table in ${container}`;
+
+    fields.innerHTML = `
+        <div class="form-group">
+            <label>Table Name</label>
+            <input type="text" id="new-table-name" placeholder="e.g. orders">
+        </div>
+    `;
+
+    document.getElementById('modal-confirm').onclick = async () => {
+        const table = document.getElementById('new-table-name').value;
+        if (!table) return;
+        await api(`/${container}/${table}`, { method: 'POST', body: JSON.stringify({ _init: true }) });
+        closeModal();
+        fetchIntrospect();
+    };
+    modal.classList.remove('hidden');
+}
+
+async function deleteTable(container, table) {
+    if (!confirm(`Delete table '${table}' from container '${container}'?`)) return;
+    await api(`/${container}/${table}`, { method: 'DELETE' });
+    fetchIntrospect();
 }
 
 async function createContainer() {
@@ -170,14 +204,98 @@ function viewTable(container, table) {
     document.getElementById('table-title').innerText = `Table: ${table}`;
     document.getElementById('table-subtitle').innerText = `Container: ${container}`;
 
+    // Add Schema Management Buttons to Header
+    const headerActions = document.querySelector('#view-data .card-header div:last-child');
+    headerActions.innerHTML = `
+        <button class="btn btn-secondary" onclick="showView('storage')">Back</button>
+        <button class="btn btn-secondary" onclick="openSchemaModal()">Columns</button>
+        <button class="btn btn-primary" onclick="openCreateModal()">Add Record</button>
+    `;
+
     renderTable();
     showView('data');
+}
+
+async function openSchemaModal() {
+    const { container, table } = state.activeContext;
+    const dataObj = state.introspection.storage[container][table];
+    const schema = dataObj.schema_preview || [];
+
+    const modal = document.getElementById('modal-container');
+    const fields = document.getElementById('modal-fields');
+    document.getElementById('modal-title').innerText = `Manage Columns: ${table}`;
+
+    fields.innerHTML = `
+        <div style="margin-bottom: 1rem;">
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">Current Columns:</p>
+            <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                ${schema.map(col => `
+                    <span class="badge badge-post" style="display:flex; align-items:center; gap:0.4rem;">
+                        ${col}
+                        ${col !== 'id' ? `<span onclick="deleteColumn('${col}')" style="cursor:pointer; font-weight:bold">×</span>` : ''}
+                    </span>
+                `).join('')}
+            </div>
+        </div>
+        <hr style="margin: 1rem 0; border: none; border-top: 1px solid var(--border);">
+        <div class="form-group">
+            <label>Add New Column</label>
+            <div style="display:flex; gap:0.5rem">
+                <input type="text" id="new-column-name" placeholder="column_name">
+                <button class="btn btn-secondary" onclick="addColumn()">Add</button>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('modal-confirm').style.display = 'none'; // Use inline buttons
+    modal.classList.remove('hidden');
+}
+
+async function addColumn() {
+    const colName = document.getElementById('new-column-name').value;
+    if (!colName) return;
+
+    const { container, table } = state.activeContext;
+    const dataObj = state.introspection.storage[container][table];
+    const currentSchema = dataObj.schema_preview || [];
+
+    if (currentSchema.includes(colName)) {
+        alert('Column already exists');
+        return;
+    }
+
+    const newSchema = [...currentSchema, colName];
+    await api(`/${container}/${table}/schema`, {
+        method: 'PATCH',
+        body: JSON.stringify({ _schema_keys: newSchema })
+    });
+
+    await fetchIntrospect();
+    openSchemaModal(); // Refresh modal
+}
+
+async function deleteColumn(colName) {
+    if (!confirm(`Delete column '${colName}'? This will NOT remove data from existing records until they are updated.`)) return;
+
+    const { container, table } = state.activeContext;
+    const dataObj = state.introspection.storage[container][table];
+    const currentSchema = dataObj.schema_preview || [];
+
+    const newSchema = currentSchema.filter(c => c !== colName);
+    await api(`/${container}/${table}/schema`, {
+        method: 'PATCH',
+        body: JSON.stringify({ _schema_keys: newSchema })
+    });
+
+    await fetchIntrospect();
+    openSchemaModal(); // Refresh modal
 }
 
 function renderTable() {
     const { container, table } = state.activeContext;
     const dataObj = state.introspection.storage[container][table];
     const records = dataObj.data || [];
+    const schema = dataObj.schema_preview || ['id']; // Fallback to id if no schema
 
     const thead = document.getElementById('data-thead');
     const tbody = document.getElementById('data-tbody');
@@ -185,15 +303,9 @@ function renderTable() {
     thead.innerHTML = '';
     tbody.innerHTML = '';
 
-    if (records.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="100" style="text-align:center">No records found.</td></tr>';
-        return;
-    }
-
     // Header
-    const keys = Object.keys(records[0]);
     const tr = document.createElement('tr');
-    keys.forEach(k => {
+    schema.forEach(k => {
         const th = document.createElement('th');
         th.innerText = k;
         tr.appendChild(th);
@@ -203,12 +315,17 @@ function renderTable() {
     tr.appendChild(actionTh);
     thead.appendChild(tr);
 
+    if (records.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="${schema.length + 1}" style="text-align:center; padding: 2rem; color: var(--text-muted)">No records found. Click 'Add Record' to start.</td></tr>`;
+        return;
+    }
+
     // Body
     records.forEach(row => {
         const tr = document.createElement('tr');
-        keys.forEach(k => {
+        schema.forEach(k => {
             const td = document.createElement('td');
-            td.innerText = row[k];
+            td.innerText = row[k] !== undefined ? row[k] : '-';
             tr.appendChild(td);
         });
         const td = document.createElement('td');
@@ -274,6 +391,7 @@ async function deleteRecord(id) {
 
 function closeModal() {
     document.getElementById('modal-container').classList.add('hidden');
+    document.getElementById('modal-confirm').style.display = 'inline-flex';
 }
 
 // --- Identity UI ---
@@ -319,6 +437,17 @@ function logRequest(method, path, status, ms, data) {
 
 function clearLogs() {
     document.getElementById('logs').innerHTML = '';
+}
+
+function toggleConsole() {
+    const panel = document.getElementById('log-panel');
+    const main = document.querySelector('main');
+    const toggle = document.getElementById('console-toggle');
+
+    panel.classList.toggle('minimized');
+    main.classList.toggle('console-minimized');
+
+    toggle.innerText = panel.classList.contains('minimized') ? '▲' : '_';
 }
 
 // Entry point

@@ -172,6 +172,38 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // JWT Authentication Middleware
+const renderError = (res, status, message) => {
+    if (res.req.headers['accept']?.includes('text/html')) {
+        return res.status(status).send(`
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <title>Unauthorized - JDM Mocker</title>
+                <style>
+                    body { background: #0f172a; color: #f8fafc; font-family: 'Inter', system-ui, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+                    .card { background: #1e293b; padding: 2.5rem; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); text-align: center; max-width: 450px; border: 1px solid #334155; }
+                    h1 { color: #f87171; font-size: 1.75rem; margin-bottom: 1rem; font-weight: 800; }
+                    p { color: #94a3b8; line-height: 1.6; font-size: 0.95rem; }
+                    .code { background: #0f172a; padding: 1.25rem; border-radius: 10px; font-family: 'Fira Code', monospace; color: #38bdf8; margin: 1.5rem 0; word-break: break-all; border: 1px solid #1e293b; font-size: 0.85rem; }
+                    .btn { display: inline-block; background: #3b82f6; color: white; padding: 0.75rem 1.5rem; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 1rem; transition: background 0.2s; }
+                    .btn:hover { background: #2563eb; }
+                </style>
+            </head>
+            <body>
+                <div class="card">
+                    <h1>${status === 401 ? '🔒 Access Denied' : '⚠️ Error'}</h1>
+                    <p>It seems you are trying to access a protected JDM resource without a valid session.</p>
+                    <div class="code">{"error": "${message}"}</div>
+                    <a href="/index.html" class="btn">Go to Dashboard</a>
+                </div>
+            </body>
+            </html>
+        `);
+    }
+    return res.status(status).json({ error: message });
+};
+
 const authenticate = async (req, res, next) => {
     const authPaths = ['/auth/register', '/auth/login'];
     if (authPaths.includes(req.path)) return next();
@@ -184,7 +216,7 @@ const authenticate = async (req, res, next) => {
         req.cookies.auth_token;
 
     if (!userId) {
-        return res.status(401).json({ error: 'Unauthorized: Missing User ID' });
+        return renderError(res, 401, 'Unauthorized: Missing User ID');
     }
 
     // Allow terminal/API access if x-api-key matches userId
@@ -195,7 +227,7 @@ const authenticate = async (req, res, next) => {
     }
 
     if (!token) {
-        return res.status(401).json({ error: 'Unauthorized: Missing Token' });
+        return renderError(res, 401, 'Unauthorized: Missing Token');
     }
 
     try {
@@ -211,7 +243,7 @@ const authenticate = async (req, res, next) => {
         req.userRole = decoded.role;
         next();
     } catch (err) {
-        return res.status(401).json({ error: 'Invalid or expired session' });
+        return renderError(res, 401, 'Invalid or expired session');
     }
 };
 

@@ -164,11 +164,14 @@
         </div>
     </main>
 
-    <!-- Console Terminal -->
     <div id="log-panel">
         <div class="log-header">
             <span>NETWORK CONSOLE</span>
-            <span onclick="clearLogs()" style="cursor:pointer">Clear</span>
+            <div style="display: flex; gap: 1rem; align-items: center;">
+                <span onclick="clearLogs()" style="cursor:pointer">Clear</span>
+                <span id="console-toggle" onclick="toggleConsole()"
+                    style="cursor:pointer; font-weight: bold; background: #334155; padding: 2px 8px; border-radius: 4px; color: white;">_</span>
+            </div>
         </div>
         <div id="logs" class="log-content">
             <div class="log-entry">Waiting for requests...</div>
