@@ -1,5 +1,5 @@
 {
-  "name": "dm-mocker-server",
+  "name": "jdm-mocker-server",
   "version": "1.0.0",
   "description": "Multi-Tenant JSON Database Engine",
   "main": "server.js",
@@ -20,6 +20,7 @@
   },
   "bin": {
     "mocktainer": "./server.js",
-    "dm-mocker": "./server.js"
+    "jdm": "./server.js",
+    "jdm-mocker": "./server.js"
   }
 }

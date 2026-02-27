@@ -1,4 +1,4 @@
-# DM-mocker-Server API & Usage Guide
+# jdm-mocker-Server API & Usage Guide
 
 This document provides instructions for interacting with the Multi-User, Multi-Tenant JSON Database Engine using Token-Based Authentication. 
 
@@ -130,11 +130,11 @@ workflow();
 
 ## 6. CLI Execution & SSL Configuration
 
-DM-mocker-Server acts as a robust local binary out of the box.
+jdm-mocker-Server acts as a robust local binary out of the box.
 
 ### Quick Start
 ```bash
-dm-mocker --port 3050 --db-dir ./my-custom-data
+jdm-mocker --port 3050 --db-dir ./my-custom-data
 ```
 *   `--port` (or `-p`): Defines the server port (Default: 3000)
 *   `--db-dir` (or `-d`): The absolute or relative path to isolated user spaces. (Default: `./data`)
@@ -146,7 +146,7 @@ If you want to proxy requests strictly over HTTPS (`https://localhost`):
 openssl req -nodes -new -x509 -keyout server.key -out server.cert -days 1 -subj "/C=US/ST=State/L=City/O=Org/OU=OrgUnit/CN=localhost"
 
 # 2. Start the server with the SSL flag
-dm-mocker --ssl
+jdm-mocker --ssl
 ```
 *Note: The binary will automatically find `server.key` and `server.cert` in the execution directory.*
 

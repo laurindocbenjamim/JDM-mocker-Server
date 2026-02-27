@@ -147,7 +147,7 @@ app.post('/config/force-secure-cookies', (req, res) => {
 });
 
 // Ignore auth middleware for /auth/register and /auth/login
-const authPaths = ['/auth/register', '/auth/login', '/config/force-secure-cookies'];
+const authPaths = ['/auth/register', '/auth/login', '/config/force-secure-cookies', '/admin/dashboard'];
 
 app.use(async (req, res, next) => {
     if (authPaths.includes(req.path)) {
@@ -565,7 +565,7 @@ const startServer = async () => {
 
 const logStartup = (protocol) => () => {
     console.log(`\n======================================================`);
-    console.log(`🚀 DM-mocker-Server is running!`);
+    console.log(`🚀 jdm-mocker-Server is running!`);
     console.log(`📂 Data Directory : ${DATA_DIR}`);
     console.log(`🌐 Local API Base : ${protocol}://localhost:${PORT}`);
     console.log(`⚙️  Admin Dashboard: ${protocol}://localhost:${PORT}/admin/dashboard`);
