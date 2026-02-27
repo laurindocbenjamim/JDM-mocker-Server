@@ -285,6 +285,7 @@
         let introspectionData = null;
         let currentViewMode = 'grid'; // grid | json
         let activeContext = { container: null, table: null, records: null };
+        let expandedContainers = new Set(JSON.parse(localStorage.getItem('jdm_expanded') || '[]'));
 
         // DOM Elements
         const modal = document.getElementById('auth-modal');
@@ -502,41 +503,71 @@
 
             containerNames.forEach(container => {
                 const tables = Object.keys(storage[container]);
+                const isExpanded = expandedContainers.has(container);
 
-                // Container Header
-                const cDiv = document.createElement('div');
-                cDiv.innerHTML = `
-                    <div class="flex items-center gap-2 px-2 py-1.5 text-slate-800 font-bold mb-1">
-                        <svg class="w-4 h-4 text-slate-400" fill="currentColor" viewBox="0 0 20 20"><path d="M22 17a2 2 0 01-2 2H4a2 2 0 01-2-2V9a2 2 0 012-2h5l2 2h9a2 2 0 012 2v6z"/></svg>
-                        ${container}
+                // Container Wrapper
+                const containerWrapper = document.createElement('div');
+                containerWrapper.className = 'mb-1';
+
+                // Container Header (Toggle)
+                const header = document.createElement('div');
+                header.className = 'flex items-center justify-between px-2 py-1.5 cursor-pointer hover:bg-slate-100 rounded-md transition-colors group';
+                header.innerHTML = `
+                    <div class="flex items-center gap-2 text-slate-800 font-bold overflow-hidden">
+                        <svg class="w-4 h-4 text-slate-400 shrink-0 transform transition-transform ${isExpanded ? 'rotate-90' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                        <svg class="w-4 h-4 text-slate-400 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path d="M22 17a2 2 0 01-2 2H4a2 2 0 01-2-2V9a2 2 0 012-2h5l2 2h9a2 2 0 012 2v6z"/></svg>
+                        <span class="truncate">${container}</span>
                     </div>
                 `;
-                explorer.appendChild(cDiv);
+
+                header.onclick = () => {
+                    if (expandedContainers.has(container)) {
+                        expandedContainers.delete(container);
+                    } else {
+                        expandedContainers.add(container);
+                    }
+                    localStorage.setItem('jdm_expanded', JSON.stringify(Array.from(expandedContainers)));
+                    renderSidebar();
+                };
+
+                containerWrapper.appendChild(header);
 
                 // Table List
-                const list = document.createElement('ul');
-                list.className = 'pl-6 space-y-1';
+                if (isExpanded) {
+                    const list = document.createElement('ul');
+                    list.className = 'pl-6 space-y-1 mt-1';
 
-                if (tables.length === 0) {
-                    list.innerHTML = `<li class="text-xs text-slate-400 py-1 pl-2">No tables</li>`;
-                } else {
-                    tables.forEach(table => {
-                        const recs = storage[container][table].data;
-                        const li = document.createElement('li');
-                        li.className = `px-2 py-1.5 rounded-md cursor-pointer hover:bg-blue-50 hover:text-blue-700 transition-colors flex justify-between items-center text-slate-600`;
-                        li.innerHTML = `
-                            <div class="flex items-center gap-2">
-                                <span class="bg-blue-100 text-blue-500 px-1 py-0.5 rounded text-[10px] font-bold">T</span>
-                                ${table}
-                            </div>
-                            <span class="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">${storage[container][table].count}</span>
-                        `;
+                    if (tables.length === 0) {
+                        list.innerHTML = `<li class="text-xs text-slate-400 py-1 pl-2 italic">No tables</li>`;
+                    } else {
+                        tables.forEach(table => {
+                            const recs = storage[container][table].data;
+                            const li = document.createElement('li');
+                            const isActive = activeContext.container === container && activeContext.table === table;
+                            
+                            li.className = `px-2 py-1.5 rounded-md cursor-pointer transition-colors flex justify-between items-center text-slate-600 ${isActive ? 'bg-blue-50 text-blue-700 font-medium' : 'hover:bg-blue-50/50 hover:text-blue-700'}`;
+                            li.innerHTML = `
+                                <div class="flex items-center gap-2 overflow-hidden">
+                                    <span class="bg-blue-100 text-blue-500 px-1 py-0.5 rounded text-[10px] font-bold shrink-0">T</span>
+                                    <span class="truncate">${table}</span>
+                                </div>
+                                <span class="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded shrink-0 ml-2">${storage[container][table].count}</span>
+                            `;
 
-                        li.onclick = () => selectContext(container, table, recs);
-                        list.appendChild(li);
-                    });
+                            li.onclick = (e) => {
+                                e.stopPropagation();
+                                selectContext(container, table, recs);
+                                renderSidebar(); // Re-render to update active style
+                            };
+                            list.appendChild(li);
+                        });
+                    }
+                    containerWrapper.appendChild(list);
                 }
-                explorer.appendChild(list);
+
+                explorer.appendChild(containerWrapper);
             });
         }
 
