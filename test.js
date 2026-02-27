@@ -33,7 +33,7 @@ class JdmMockerTester {
     }
 
     async runTests() {
-        console.log(`🚀 Starting JDM-mocker Unit Tests on ${this.baseUrl} ...\n`);
+        console.log(`🚀 Starting jdm-mock Unit Tests on ${this.baseUrl} ...\n`);
         let recordId;
 
         try {

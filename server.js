@@ -652,7 +652,7 @@ const startServer = async () => {
 
 const logStartup = (protocol) => () => {
     console.log(`\n======================================================`);
-    console.log(`🚀 jdm-mocker-Server is running!`);
+    console.log(`🚀 jdm-mock-server is running!`);
     console.log(`📂 Data Directory : ${DATA_DIR}`);
     console.log(`🌐 Local API Base : ${protocol}://localhost:${PORT}`);
     console.log(`⚙️  Admin Dashboard: ${protocol}://localhost:${PORT}/admin/dashboard`);

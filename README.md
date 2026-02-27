@@ -1,4 +1,4 @@
-# jdm-mocker-Server
+# jdm-mock-server
 
 A modular, multi-user JSON mock backend service built natively with Node.js and Express. It provides a multi-tenant JSON database engine perfectly suited for frontend prototyping.
 
@@ -22,7 +22,7 @@ You can run the engine globally or anywhere on your machine by overriding the de
 
 2. **Start the server with custom CLI options:**
    ```bash
-   jdm-mocker --port 8080 --db-dir /path/to/my/mock-data --ssl
+   jdm-mock --port 8080 --db-dir /path/to/my/mock-data --ssl
    ```
    *Alternatively, if running locally via script:*
    ```bash

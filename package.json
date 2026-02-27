@@ -1,5 +1,5 @@
 {
-  "name": "jdm-mocker-server",
+  "name": "jdm-mock-server",
   "version": "1.0.0",
   "description": "Multi-Tenant JSON Database Engine",
   "main": "server.js",
@@ -27,7 +27,8 @@
   "bin": {
     "mocktainer": "./server.js",
     "jdm": "./server.js",
-    "jdm-mocker": "./server.js"
+    "jdm-mock": "./server.js",
+    "jdm-mock-server": "./server.js"
   },
   "devDependencies": {
     "artillery": "^2.0.30",
