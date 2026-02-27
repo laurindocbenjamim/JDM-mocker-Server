@@ -167,14 +167,18 @@ app.use(async (req, res, next) => {
     // Extract token
     let token = null;
     const authHeader = req.headers['authorization'];
+    const csrfHeader = req.headers['csrf-token'] || req.headers['x-csrf-token'];
+
     if (authHeader && authHeader.startsWith('Bearer ')) {
         token = authHeader.split(' ')[1];
+    } else if (csrfHeader) {
+        token = csrfHeader;
     } else if (req.cookies && req.cookies.auth_token) {
         token = req.cookies.auth_token;
     }
 
     if (!token) {
-        return res.status(401).json({ error: 'Unauthorized: Missing Bearer token or cookie' });
+        return res.status(401).json({ error: 'Unauthorized: Missing Bearer token, CSRF token, or cookie' });
     }
 
     // Validate Token against sessions.json

@@ -75,8 +75,10 @@ curl -X GET http://localhost:3000/containers \
 
 All data management endpoints (`/:container/:table`) require **BOTH**:
 1. User target folder: `x-user-id: <your-uuid>`
-2. Token pass (via Header OR HttpOnly Cookie): `Authorization: Bearer <your-token>`
-
+2. Token pass (via Header OR HttpOnly Cookie OR CSRF-Token): 
+   - `Authorization: Bearer <your-token>`
+   - *OR* `CSRF-Token: <your-token>`
+   - *OR* `x-csrf-token: <your-token>`
 ### Role-Based Access Control (RBAC)
 When generating your token via `/auth/login`, if you set `"role": "admin"`, you can securely perform `POST`, `PUT`, `DELETE` and `PATCH` actions. Viewers will receive `403 Forbidden`.
 
