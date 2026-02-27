@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "test": "node test.js"
+    "test": "node test.js",
+    "test:stress": "node test-stress.js",
+    "test:load": "npx artillery run test-load.yml"
   },
   "dependencies": {
     "commander": "^14.0.3",
@@ -23,5 +25,9 @@
     "mocktainer": "./server.js",
     "jdm": "./server.js",
     "jdm-mocker": "./server.js"
+  },
+  "devDependencies": {
+    "artillery": "^2.0.30",
+    "autocannon": "^8.0.0"
   }
 }

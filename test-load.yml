@@ -1,0 +1,94 @@
+config:
+  target: 'http://localhost:3000'
+  phases:
+    - duration: 60
+      arrivalRate: 5
+      name: Warm up phase
+    - duration: 120
+      arrivalRate: 5
+      rampTo: 50
+      name: Ramp up load
+    - duration: 60
+      arrivalRate: 50
+      name: Sustained load
+
+  plugins:
+    metrics-by-endpoint: {}
+
+  # Variables to hold dynamic tokens
+  variables:
+    userId: ""
+    token: ""
+
+scenarios:
+  - name: "API CRUD Workflow"
+    weight: 100
+    flow:
+      # Step 1: Provision a temporary UUID
+      - post:
+          url: "/auth/register"
+          capture:
+            - json: "$.x-user-id"
+              as: "userId"
+      
+      # Step 2: Login to obtain a JWT token
+      - post:
+          url: "/auth/login"
+          headers:
+            x-user-id: "{{ userId }}"
+            Content-Type: "application/json"
+          json:
+            role: "admin"
+            expiresIn: 3600000
+          capture:
+            - json: "$.token"
+              as: "token"
+
+      # Step 3: Repeated intensive CRUD Actions
+      - loop:
+          - post:
+              url: "/load-db/artillery_data"
+              headers:
+                x-user-id: "{{ userId }}"
+                Authorization: "Bearer {{ token }}"
+                Content-Type: "application/json"
+              json:
+                name: "Artillery Tester"
+                timestamp: "{{ $timestamp }}"
+                load_value: "{{ $randomNumber(1, 1000) }}"
+              capture:
+                - json: "$.id"
+                  as: "recordId"
+
+          - get:
+              url: "/load-db/artillery_data"
+              headers:
+                x-user-id: "{{ userId }}"
+                Authorization: "Bearer {{ token }}"
+
+          - put:
+              url: "/load-db/artillery_data/{{ recordId }}"
+              headers:
+                x-user-id: "{{ userId }}"
+                Authorization: "Bearer {{ token }}"
+                Content-Type: "application/json"
+              json:
+                name: "Updated Artillery Tester"
+                timestamp: "{{ $timestamp }}"
+                load_value: "{{ $randomNumber(1001, 5000) }}"
+        
+        count: 5
+
+      # Step 4: Introspect the entire mock DB
+      - get:
+          url: "/introspect"
+          headers:
+            x-user-id: "{{ userId }}"
+            Authorization: "Bearer {{ token }}"
+
+      # Step 5: Clean up / Delete the UUID
+      - delete:
+          url: "/auth/account"
+          headers:
+            x-user-id: "{{ userId }}"
+            Authorization: "Bearer {{ token }}"
