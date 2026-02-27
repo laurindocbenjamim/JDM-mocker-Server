@@ -1,0 +1,19 @@
+{
+  "artillery_data": [
+    {
+      "id": "341dbd93-a538-4626-acd6-315603451c16",
+      "name": "Updated Artillery Tester",
+      "load_value": "2584"
+    },
+    {
+      "id": "465567c0-27ac-46d4-8809-70d63127b408",
+      "name": "Updated Artillery Tester",
+      "load_value": "3514"
+    },
+    {
+      "id": "2d3ab6d4-a9a1-431a-bee0-11b5629237b7",
+      "name": "Artillery Tester",
+      "load_value": "529"
+    }
+  ]
+}

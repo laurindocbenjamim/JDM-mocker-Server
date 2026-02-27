@@ -53,6 +53,28 @@ You can run the engine globally or anywhere on your machine by overriding the de
 4. **Data Persistence Context:**
    - On ephemeral hosting like Render's free tier, the `/data` folder will reset upon each deployment or sleep cycle. If you need persistent storage, attach a persistent disk (Render) or equivalent storage volume (Railway) and map it to the `/data` directory within your project workspace, or change the `DATA_DIR` path in `server.js` to point to your volume.
 
+## Performance Testing
+
+The project includes built-in stress and load testing scripts to simulate high-traffic scenarios:
+
+1. **Stress Test (Autocannon - Ultra Fast)**
+   Runs a high-throughput raw connection test dynamically creating a user, generating a token, and hammering the DB.
+   ```bash
+   npm run test:stress
+   ```
+
+2. **Load Test (Artillery - Professional Flow)**
+   Executes a sophisticated scenario mapping a real-world multi-step user journey (Warm up -> Ramp Up -> Sustained Load).
+   ```bash
+   npm run test:load
+   ```
+
+### O que testar a seguir?
+Para veres a performance real do servidor sem o bloqueio do simulador, tenta:
+- Aumentar o Rate Limit no código para 1000 por minuto.
+- Reduzir o delay para 100ms e ver se os "Requests/Sec" sobem drasticamente.
+- Verificar nos logs do servidor qual foi o código de erro dos "800 non 2xx" (se foi `429 Too Many Requests` ou `401 Unauthorized`).
+
 ## API Documentation
 
 For detailed instructions on how to interact with the API endpoints (including using `curl` and `fetch`), please refer to [API.md](./API.md).
