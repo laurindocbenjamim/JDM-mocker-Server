@@ -419,20 +419,41 @@ app.patch('/:container/:table/schema', async (req, res) => {
     const filePath = getPath(req.userId, `${container}.json`);
     const data = await readJson(filePath);
 
-    if (!data || !data[table] || !Array.isArray(data[table])) {
+    if (!data || !data[table]) {
         return res.status(400).json({ error: `Table '${table}' is invalid or not found` });
     }
 
-    data[table] = data[table].map(record => {
+    const isStructured = !Array.isArray(data[table]);
+    const records = isStructured ? data[table].records : data[table];
+
+    if (!Array.isArray(records)) {
+        return res.status(400).json({ error: `Table '${table}' is invalid or not found` });
+    }
+
+    const updatedRecords = records.map(record => {
         if (rename) Object.entries(rename).forEach(([o, n]) => { if (record[o] !== undefined) { record[n] = record[o]; delete record[o]; } });
         if (remove) remove.forEach(k => delete record[k]);
         if (set) Object.entries(set).forEach(([k, v]) => { record[k] = v; });
         return record;
     });
 
+    if (isStructured) {
+        data[table].records = updatedRecords;
+    } else {
+        data[table] = updatedRecords;
+    }
+
     await atomicWriteJson(filePath, data);
-    res.json({ message: `Schema bulk update applied`, count: data[table].length });
+    res.json({ message: `Schema bulk update applied`, count: updatedRecords.length });
 });
+
+// ----------------------------------------------------
+// Helper: Extract valid records array from raw table data
+// ----------------------------------------------------
+const getTableRecords = (tableData) => {
+    if (!tableData) return null;
+    return Array.isArray(tableData) ? tableData : tableData.records;
+};
 
 // ----------------------------------------------------
 // 6. Data Ops (Full CRUD on /:container/:table & ID)
@@ -445,7 +466,7 @@ app.get('/:container/:table', async (req, res) => {
 
     if (!data || !data[table]) return res.status(404).json({ error: `Table '${table}' not found` });
 
-    let records = data[table];
+    let records = getTableRecords(data[table]);
 
     // Support filtering
     const { page, limit, ...filters } = req.query;
@@ -480,21 +501,68 @@ app.get('/:container/:table/:id', async (req, res) => {
 
     if (!data || !data[table]) return res.status(404).json({ error: 'Table not found' });
 
-    const record = data[table].find(r => r.id === id);
+    const records = getTableRecords(data[table]);
+    const record = records.find(r => r.id === id);
     if (!record) return res.status(404).json({ error: 'Record not found' });
 
     res.json(record);
 });
+
+// ----------------------------------------------------
+// Schema Validation Engine
+// ----------------------------------------------------
+const validateAgainstSchema = (payload, schema) => {
+    if (!schema || Object.keys(schema).length === 0) return null;
+
+    for (const [key, type] of Object.entries(schema)) {
+        const val = payload[key];
+        if (val === undefined || val === null) continue; // Skip missing optional fields
+
+        if (type === 'String' && typeof val !== 'string') return `Field '${key}' expects String`;
+        if (type === 'Number' && typeof val !== 'number') return `Field '${key}' expects Number`;
+        if (type === 'Boolean' && typeof val !== 'boolean') return `Field '${key}' expects Boolean`;
+        if (type === 'Date' && isNaN(Date.parse(val))) return `Field '${key}' expects a valid ISO Date string`;
+    }
+    return null; // No errors
+};
 
 app.post('/:container/:table', async (req, res) => {
     const { container, table } = req.params;
     const filePath = getPath(req.userId, `${container}.json`);
 
     let data = await readJson(filePath) || {};
-    if (!data[table]) data[table] = [];
+
+    // Check if user is initializing a table specifically with a _schema defined in root payload
+    if (!data[table] && req.body._schema) {
+        data[table] = { _schema: req.body._schema, records: [] };
+        delete req.body._schema;
+
+        // If they only sent the schema to init the table, return early.
+        if (Object.keys(req.body).length === 0) {
+            await atomicWriteJson(filePath, data);
+            return res.status(201).json({ message: 'Table initialized with schema' });
+        }
+    } else if (!data[table]) {
+        // Init as standard unstructured array
+        data[table] = [];
+    }
+
+    // Extract schema and records based on table structure
+    const isStructured = !Array.isArray(data[table]);
+    const schema = isStructured ? data[table]._schema : null;
+    const records = isStructured ? data[table].records : data[table];
+
+    // Remove any accidental _schema injection via normal POST to an existing table
+    delete req.body._schema;
+
+    // Validate if schema exists
+    if (schema) {
+        const validationError = validateAgainstSchema(req.body, schema);
+        if (validationError) return res.status(400).json({ error: `Validation Error: ${validationError}` });
+    }
 
     const newRecord = { id: uuidv4(), ...req.body };
-    data[table].push(newRecord);
+    records.push(newRecord);
 
     await atomicWriteJson(filePath, data);
     res.status(201).json(newRecord);
@@ -507,13 +575,25 @@ app.put('/:container/:table/:id', async (req, res) => {
 
     if (!data || !data[table]) return res.status(404).json({ error: 'Table not found' });
 
-    const idx = data[table].findIndex(r => r.id === id);
+    const isStructured = !Array.isArray(data[table]);
+    const schema = isStructured ? data[table]._schema : null;
+    const records = isStructured ? data[table].records : data[table];
+
+    const idx = records.findIndex(r => r.id === id);
     if (idx === -1) return res.status(404).json({ error: 'Record not found' });
 
-    data[table][idx] = { id, ...req.body };
+    // Validate if schema exists
+    if (schema) {
+        // Prevent accidental schema injection via PUT
+        delete req.body._schema;
+        const validationError = validateAgainstSchema(req.body, schema);
+        if (validationError) return res.status(400).json({ error: `Validation Error: ${validationError}` });
+    }
+
+    records[idx] = { id, ...req.body };
     await atomicWriteJson(filePath, data);
 
-    res.json(data[table][idx]);
+    res.json(records[idx]);
 });
 
 app.delete('/:container/:table/:id', async (req, res) => {
@@ -523,10 +603,13 @@ app.delete('/:container/:table/:id', async (req, res) => {
 
     if (!data || !data[table]) return res.status(404).json({ error: 'Table not found' });
 
-    const idx = data[table].findIndex(r => r.id === id);
+    const isStructured = !Array.isArray(data[table]);
+    const records = isStructured ? data[table].records : data[table];
+
+    const idx = records.findIndex(r => r.id === id);
     if (idx === -1) return res.status(404).json({ error: 'Record not found' });
 
-    data[table].splice(idx, 1);
+    records.splice(idx, 1);
     await atomicWriteJson(filePath, data);
     res.status(204).send();
 });

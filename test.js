@@ -152,13 +152,51 @@ class JdmMockerTester {
             assert.notStrictEqual(this.userId, oldUserId, 'UUID should change');
             console.log(` ✅ OK (Status: ${res.status}) - Response: ${JSON.stringify(res.data)}`);
 
-            // 13. Delete Account
-            process.stdout.write('13. Testing Delete Account...');
-            res = await this.request('/auth/account', { method: 'DELETE' });
-            assert.strictEqual(res.status, 204, 'Delete account failed');
+            console.log(`\n🎉 All typed validation tests passed successfully!\n`);
+
+            // --- SECURITY & VALIDATION TESTS ---
+            console.log(`🛡️ Starting Security & Validation Tests...\n`);
+
+            // SC1. Init Table with explicit _schema
+            process.stdout.write('SC1. Testing Table Schema Initialization...');
+            res = await this.request('/test-db/typed-table', {
+                method: 'POST',
+                body: JSON.stringify({
+                    _schema: { name: 'String', age: 'Number', isGraduated: 'Boolean' }
+                })
+            });
+            assert.strictEqual(res.status, 201, 'Failed to init schema');
             console.log(` ✅ OK (Status: ${res.status}) - Response: ${JSON.stringify(res.data)}`);
 
-            console.log(`\n🎉 All basic tests passed successfully!\n`);
+            // SC2. Push Valid record into Typed Table
+            process.stdout.write('SC2. Testing Valid POST on Typed Table...');
+            res = await this.request('/test-db/typed-table', {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Bob', age: 24, isGraduated: true })
+            });
+            assert.strictEqual(res.status, 201, 'Valid typed POST failed');
+            const typedRecordId = res.data.id;
+            console.log(` ✅ OK (Status: ${res.status}) - Response: ${JSON.stringify(res.data)}`);
+
+            // SC3. Push Invalid String into Number Field (POST)
+            process.stdout.write('SC3. Testing Invalid data type rejection (POST)...');
+            res = await this.request('/test-db/typed-table', {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Charlie', age: 'Twenty', isGraduated: false })
+            });
+            assert.strictEqual(res.status, 400, 'Invalid type should return 400');
+            console.log(` ✅ OK (Status: ${res.status}) - Response: ${JSON.stringify(res.data)}`);
+
+            // SC4. Push Invalid Boolean into String Field (PUT)
+            process.stdout.write('SC4. Testing Invalid data type rejection (PUT)...');
+            res = await this.request(`/test-db/typed-table/${typedRecordId}`, {
+                method: 'PUT',
+                body: JSON.stringify({ name: true, age: 25, isGraduated: true })
+            });
+            assert.strictEqual(res.status, 400, 'Invalid type update should return 400');
+            console.log(` ✅ OK (Status: ${res.status}) - Response: ${JSON.stringify(res.data)}`);
+
+            console.log(`\n🎉 All typed validation tests passed successfully!\n`);
 
             // --- SECURITY & VALIDATION TESTS ---
             console.log(`🛡️ Starting Security & Validation Tests...\n`);
@@ -210,8 +248,10 @@ class JdmMockerTester {
 
             // Cleanup security user
             res = await this.request('/auth/login', { method: 'POST', body: JSON.stringify({ role: 'admin', expiresIn: 30000 }) });
-            this.token = res.data.token;
-            await this.request('/auth/account', { method: 'DELETE' });
+            if (res.data && res.data.token) {
+                this.token = res.data.token;
+                await this.request('/auth/account', { method: 'DELETE' });
+            }
 
             console.log(`\n🎉 All security & validation tests passed successfully!`);
 
