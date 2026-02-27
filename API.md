@@ -171,3 +171,128 @@ curl -X POST http://localhost:3000/config/force-secure-cookies \
 }
 ```
 *When activated, your next `/auth/login` containing `"useCookie": true` will instantly generate cross-origin simulated secure headers.*
+
+---
+
+## 8. Complete API Reference (cURL)
+
+Below are `curl` examples for every available endpoint. For all examples, assume you have registered and logged in to obtain your `<your-uuid>` and `<your-token>`.
+
+> **Note:** Most of these endpoints require an `admin` role token for any mutation (POST, PUT, PATCH, DELETE).
+
+### Introspection & Admin Ops
+
+**1. Get full database state (Introspect)**
+```bash
+curl -X GET http://localhost:3000/introspect \
+  -H "x-user-id: <your-uuid>" \
+  -H "Authorization: Bearer <your-token>"
+```
+
+**2. List all containers (JSON files)**
+```bash
+curl -X GET http://localhost:3000/containers \
+  -H "x-user-id: <your-uuid>" \
+  -H "Authorization: Bearer <your-token>"
+```
+
+**3. Delete a container**
+```bash
+curl -X DELETE http://localhost:3000/containers/my-database \
+  -H "x-user-id: <your-uuid>" \
+  -H "Authorization: Bearer <your-token>"
+```
+
+### Table Ops
+
+**4. Delete a table from a container**
+```bash
+curl -X DELETE http://localhost:3000/my-database/users \
+  -H "x-user-id: <your-uuid>" \
+  -H "Authorization: Bearer <your-token>"
+```
+
+**5. Rename a table**
+```bash
+curl -X PATCH http://localhost:3000/my-database/users/rename \
+  -H "x-user-id: <your-uuid>" \
+  -H "Authorization: Bearer <your-token>" \
+  -H "Content-Type: application/json" \
+  -d '{"newName": "customers"}'
+```
+
+**6. Bulk Schema Update (remove, rename, or set fields across all records)**
+```bash
+curl -X PATCH http://localhost:3000/my-database/users/schema \
+  -H "x-user-id: <your-uuid>" \
+  -H "Authorization: Bearer <your-token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "remove": ["old_field"],
+    "rename": {"current_name": "new_name"},
+    "set": {"status": "active"}
+  }'
+```
+
+### Data Ops (CRUD)
+
+**7. Create a record (POST)**
+```bash
+curl -X POST http://localhost:3000/my-database/users \
+  -H "x-user-id: <your-uuid>" \
+  -H "Authorization: Bearer <your-token>" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Alice", "age": 28}'
+```
+
+**8. List records (GET) with optional filtering and pagination**
+```bash
+# Get all records
+curl -X GET http://localhost:3000/my-database/users \
+  -H "x-user-id: <your-uuid>" \
+  -H "Authorization: Bearer <your-token>"
+
+# With Pagination and Filtering (e.g., page 1, 5 per page, where age=28)
+curl -X GET "http://localhost:3000/my-database/users?page=1&limit=5&age=28" \
+  -H "x-user-id: <your-uuid>" \
+  -H "Authorization: Bearer <your-token>"
+```
+
+**9. Get a specific record by ID (GET)**
+```bash
+curl -X GET http://localhost:3000/my-database/users/<record-id> \
+  -H "x-user-id: <your-uuid>" \
+  -H "Authorization: Bearer <your-token>"
+```
+
+**10. Update/Replace a specific record by ID (PUT)**
+```bash
+curl -X PUT http://localhost:3000/my-database/users/<record-id> \
+  -H "x-user-id: <your-uuid>" \
+  -H "Authorization: Bearer <your-token>" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Alice updated", "age": 29}'
+```
+
+**11. Delete a specific record by ID (DELETE)**
+```bash
+curl -X DELETE http://localhost:3000/my-database/users/<record-id> \
+  -H "x-user-id: <your-uuid>" \
+  -H "Authorization: Bearer <your-token>"
+```
+
+### User Identity Ops
+
+**12. Rotate/Update UUID (Migrates all your data to a new UUID)**
+```bash
+curl -X PATCH http://localhost:3000/auth/update-uuid \
+  -H "x-user-id: <your-uuid>" \
+  -H "Authorization: Bearer <your-token>"
+```
+
+**13. Delete Account (Wipes all your data entirely)**
+```bash
+curl -X DELETE http://localhost:3000/auth/account \
+  -H "x-user-id: <your-uuid>" \
+  -H "Authorization: Bearer <your-token>"
+```
