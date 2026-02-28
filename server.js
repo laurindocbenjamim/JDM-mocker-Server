@@ -388,6 +388,51 @@ app.get('/crud-example', (req, res) => {
 
 app.use(authenticate);
 
+// --- Custom Mock Route Resolution ---
+app.use(async (req, res, next) => {
+    if (!req.userId) return next();
+
+    // Skip well-known management routes
+    const pathsToSkip = [
+        '/introspect', '/auth', '/containers', '/admin', '/dev-admin',
+        '/crud-example', '/favicon.ico', '/index.html', '/app.js', '/style.css',
+        '/assets', '/public'
+    ];
+    if (pathsToSkip.some(p => req.path.startsWith(p))) return next();
+
+    try {
+        const containerNames = await Storage.listContainers(req.userId);
+        for (const container of containerNames) {
+            const data = await Storage.readContainer(req.userId, container);
+            if (!data) continue;
+
+            for (const [table, tableData] of Object.entries(data)) {
+                if (tableData && typeof tableData === 'object' && !Array.isArray(tableData)) {
+                    if (tableData._customPaths) {
+                        const method = req.method.toLowerCase();
+                        let customPath = tableData._customPaths[method];
+                        if (!customPath) continue;
+
+                        if (!customPath.startsWith('/')) customPath = '/' + customPath;
+
+                        if (req.path === customPath) {
+                            req.url = `/${container}/${table}`;
+                            return next();
+                        } else if (req.path.startsWith(customPath + '/')) {
+                            const id = req.path.slice(customPath.length + 1);
+                            req.url = `/${container}/${table}/${id}`;
+                            return next();
+                        }
+                    }
+                }
+            }
+        }
+    } catch (err) {
+        // Silently fail and let normal routes try
+    }
+    next();
+});
+
 // ----------------------------------------------------
 // Data Routes (Simplified for brevity)
 // ----------------------------------------------------
@@ -413,6 +458,7 @@ app.get('/introspect', async (req, res) => {
                         count: Array.isArray(tableRecords) ? tableRecords.length : 0,
                         schema_preview: Array.isArray(tableRecords) && tableRecords.length > 0 ? Object.keys(tableRecords[0]) : [],
                         schema: isStructured ? records._schema : null,
+                        customPaths: isStructured ? records._customPaths : null,
                         data: tableRecords
                     };
                 }
@@ -774,13 +820,30 @@ app.post('/:container/:table', async (req, res) => {
     let data = await Storage.readContainer(req.userId, container) || {};
 
     if (!data[table] && req.body._schema) {
-        data[table] = { _schema: req.body._schema, records: [] };
+        data[table] = {
+            _schema: req.body._schema,
+            _customPaths: req.body._customPaths || {},
+            records: []
+        };
         delete req.body._schema;
+        delete req.body._customPaths;
         if (Object.keys(req.body).length === 0) {
             await Storage.writeContainer(req.userId, container, data);
             return res.status(201).json({ message: 'Table initialized with schema' });
         }
     } else if (!data[table]) {
+        if (req.body._init) {
+            data[table] = {
+                _schema: req.body._schema || {},
+                _customPaths: req.body._customPaths || {},
+                records: []
+            };
+            delete req.body._schema;
+            delete req.body._customPaths;
+            delete req.body._init;
+            await Storage.writeContainer(req.userId, container, data);
+            return res.status(201).json({ message: 'Table initialized' });
+        }
         data[table] = [];
     }
 
