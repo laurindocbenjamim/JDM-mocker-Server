@@ -23,7 +23,7 @@ async function handleDevLogin() {
         localStorage.setItem('dev_userId', data.userId);
         showDashboard();
     } else {
-        alert(data.error || 'Login failed');
+        showToast(data.error || 'Login failed', 'error');
     }
 }
 
@@ -51,8 +51,19 @@ async function fetchStats() {
     renderStats(stats);
 }
 
-function renderStats(stats) {
-    if (!Array.isArray(stats)) return;
+function renderStats(data) {
+    if (!data) return;
+    const stats = data.details || [];
+    const summary = data.summary || { totalUsers: 0, totalContainers: 0, totalTables: 0, totalColumns: 0 };
+
+    // Update summary cards
+    if (document.getElementById('stat-users')) {
+        document.getElementById('stat-users').innerText = summary.totalUsers;
+        document.getElementById('stat-containers').innerText = summary.totalContainers;
+        document.getElementById('stat-tables').innerText = summary.totalTables;
+        document.getElementById('stat-columns').innerText = summary.totalColumns;
+    }
+
     const tbody = document.getElementById('stats-tbody');
     tbody.innerHTML = stats.map(s => `
         <tr data-user-id="${s.userId}">
@@ -104,12 +115,15 @@ async function deleteUser(id, e) {
 
         if (!response.ok) {
             const err = await response.json().catch(() => ({ error: response.status === 404 ? 'Endpoint not found. Please restart the server.' : 'Unknown server error' }));
-            alert(`Failed (${response.status}): ${err.error}`);
+            showToast(`Failed (${response.status}): ${err.error}`, 'error');
             // On failure, we should probably fetchStats to restore the row
             await fetchStats();
+        } else {
+            showToast('User successfully removed', 'success');
+            await fetchStats(); // Refresh totals
         }
     } catch (err) {
-        alert('Deletion failed');
+        showToast('Deletion failed', 'error');
         await fetchStats();
     }
 }
@@ -172,13 +186,41 @@ async function deleteSelectedUsers() {
 
         if (!response.ok) {
             const err = await response.json().catch(() => ({ error: response.status === 404 ? 'Bulk endpoint not found. Please restart the server.' : 'Unknown server error' }));
-            alert(`Bulk deletion failed (${response.status}): ${err.error}`);
+            showToast(`Bulk deletion failed (${response.status}): ${err.error}`, 'error');
             await fetchStats();
+        } else {
+            showToast(`Successfully removed ${selected.length} users`, 'success');
+            await fetchStats(); // Refresh totals
         }
     } catch (err) {
-        alert('Network error during bulk deletion');
+        showToast('Network error during bulk deletion', 'error');
         await fetchStats();
     }
+}
+
+function showToast(message, type = 'success') {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+
+    let icon = '✓';
+    if (type === 'error') icon = '✕';
+    if (type === 'warning') icon = '⚠';
+
+    toast.innerHTML = `
+        <div class="toast-icon">${icon}</div>
+        <span>${message}</span>
+    `;
+
+    container.appendChild(toast);
+    setTimeout(() => toast.classList.add('show'), 10);
+
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 500);
+    }, 4000);
 }
 
 function logout() {
@@ -198,6 +240,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }).then(res => {
             if (res.ok) {
                 showDashboard();
+                // Add background polling to keep totals fresh
+                setInterval(fetchStats, 30000);
             } else {
                 logout(); // Silently clear if stale
             }

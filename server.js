@@ -73,8 +73,8 @@ const Storage = {
     },
 
     async seedDeveloper() {
-        const devEmail = "laurindocbenjamim@gmail.com";
-        const devPass = "JDMLauri201990#";
+        const devEmail = process.env.ADMIN_EMAIL;
+        const devPass = process.env.ADMIN_PASSWORD;
         const hashedPassword = crypto.createHash('sha256').update(devPass).digest('hex');
         const devUser = {
             email: devEmail,
@@ -367,7 +367,8 @@ app.post('/auth/dev-login', async (req, res) => {
         }
     }
 
-    if (!user || user.email !== "laurindocbenjamim@gmail.com") {
+    const adminEmail = process.env.ADMIN_EMAIL;
+    if (!user || user.email !== adminEmail) {
         return res.status(401).json({ error: 'Invalid developer credentials' });
     }
 
@@ -460,56 +461,102 @@ app.get('/admin/stats', async (req, res) => {
     }
 
     try {
+        const summary = { totalUsers: 0, totalContainers: 0, totalTables: 0, totalColumns: 0 };
+
         if (STORE_MODE === 'mongodb') {
             const users = await db.collection('users').find().toArray();
+            summary.totalUsers = users.length;
+
             const stats = await Promise.all(users.map(async (user) => {
                 const containers = await db.collection('containers').find({ userId: user.userId }).toArray();
-                let tableCount = 0;
+                let userTableCount = 0;
+                let userColumnCount = 0;
+
                 containers.forEach(c => {
-                    tableCount += Object.keys(c.data || {}).length;
+                    const tables = Object.keys(c.data || {});
+                    userTableCount += tables.length;
+                    tables.forEach(tableName => {
+                        const tableData = c.data[tableName];
+                        if (tableData && typeof tableData === 'object' && !Array.isArray(tableData)) {
+                            // Structured format: count columns from schema
+                            if (tableData._schema) userColumnCount += Object.keys(tableData._schema).length;
+                        } else if (Array.isArray(tableData) && tableData.length > 0) {
+                            // Legacy format: count from first record
+                            userColumnCount += Object.keys(tableData[0]).length;
+                        }
+                    });
                 });
+
+                summary.totalContainers += containers.length;
+                summary.totalTables += userTableCount;
+                summary.totalColumns += userColumnCount;
+
                 return {
                     userId: user.userId,
                     name: user.name || 'Anonymous',
                     email: user.email || 'N/A',
                     createdAt: user.createdAt,
                     containerCount: containers.length,
-                    tableCount
+                    tableCount: userTableCount
                 };
             }));
-            res.json(stats);
+
+            // Sort by createdAt DESC
+            stats.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+            res.json({ summary, details: stats });
         } else {
             const userDirs = (await fs.readdir(DATA_DIR)).filter(d => {
                 try { return fsExtra.statSync(path.join(DATA_DIR, d)).isDirectory(); } catch { return false; }
             });
+            summary.totalUsers = userDirs.length;
 
             const stats = await Promise.all(userDirs.map(async (userId) => {
                 const userPath = path.join(DATA_DIR, userId);
                 const files = await fs.readdir(userPath);
                 const containers = files.filter(f => f.endsWith('.json') && f !== 'sessions.json' && f !== 'profile.json');
 
-                let tableCount = 0;
+                let userTableCount = 0;
+                let userColumnCount = 0;
                 let profile = {};
                 try { profile = JSON.parse(await fs.readFile(path.join(userPath, 'profile.json'), 'utf8')); } catch { }
 
-                await Promise.all(containers.map(async (c) => {
+                await Promise.all(containers.map(async (cFile) => {
                     try {
-                        const content = JSON.parse(await fs.readFile(path.join(userPath, c), 'utf8'));
-                        tableCount += Object.keys(content).length;
+                        const content = JSON.parse(await fs.readFile(path.join(userPath, cFile), 'utf8'));
+                        const tables = Object.keys(content);
+                        userTableCount += tables.length;
+                        tables.forEach(tableName => {
+                            const tableData = content[tableName];
+                            if (tableData && typeof tableData === 'object' && !Array.isArray(tableData)) {
+                                if (tableData._schema) userColumnCount += Object.keys(tableData._schema).length;
+                            } else if (Array.isArray(tableData) && tableData.length > 0) {
+                                userColumnCount += Object.keys(tableData[0]).length;
+                            }
+                        });
                     } catch { }
                 }));
 
                 const stat = await fs.stat(userPath);
+
+                summary.totalContainers += containers.length;
+                summary.totalTables += userTableCount;
+                summary.totalColumns += userColumnCount;
+
                 return {
                     userId,
                     name: profile.name || profile.userId || 'Anonymous',
                     email: profile.email || 'N/A',
-                    createdAt: stat.birthtime,
+                    createdAt: profile.createdAt || stat.birthtime,
                     containerCount: containers.length,
-                    tableCount
+                    tableCount: userTableCount
                 };
             }));
-            res.json(stats);
+
+            // Sort by createdAt DESC
+            stats.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+            res.json({ summary, details: stats });
         }
     } catch (err) {
         res.status(500).json({ error: 'Failed to fetch admin stats' });
