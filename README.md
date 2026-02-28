@@ -81,5 +81,6 @@ For detailed instructions on how to interact with the API endpoints (including u
 
 # Pratical Mock Example with JavaScript
 ```markdown
-Check out the [test-client/app.js](./test-client/app.js) for a full implementation example.
+Check out the [test-client/app.js](https://github.com/laurindocbenjamim/JDM-mocker-Server/blob/dev/test-client/app.js) for a full implementation example.
 ```
+
