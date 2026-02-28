@@ -2,7 +2,8 @@ const BASE_URL = ''; // Use relative paths for same-origin
 
 let adminState = {
     token: localStorage.getItem('dev_token'),
-    userId: localStorage.getItem('dev_userId')
+    userId: localStorage.getItem('dev_userId'),
+    allStats: [] // Cache for local searching
 };
 
 async function handleDevLogin() {
@@ -30,7 +31,38 @@ async function handleDevLogin() {
 function showDashboard() {
     document.getElementById('login-screen').classList.add('hidden');
     document.getElementById('admin-dashboard').classList.remove('hidden');
+
+    // Inject search form if not already present
+    if (!document.getElementById('search-container')) {
+        const header = document.querySelector('#admin-dashboard header');
+        const searchDiv = document.createElement('div');
+        searchDiv.id = 'search-container';
+        searchDiv.className = 'admin-card';
+        searchDiv.style = 'margin-bottom: 2rem; padding: 1rem; display: flex; align-items: center; gap: 1rem;';
+        searchDiv.innerHTML = `
+            <div style="color: var(--admin-primary); font-size: 1.2rem;">🔍</div>
+            <input type="text" id="user-search" placeholder="Search by User UUID..." 
+                style="flex: 1; background: transparent; border: none; color: var(--admin-text); font-size: 0.95rem; outline: none;"
+                oninput="handleSearch(this.value)">
+            <div id="search-count" style="font-size: 0.8rem; color: var(--admin-muted);"></div>
+        `;
+        header.parentNode.insertBefore(searchDiv, header.nextSibling);
+    }
+
     fetchStats();
+}
+
+function handleSearch(query) {
+    const q = query.toLowerCase().trim();
+    if (!q) {
+        renderStats({ details: adminState.allStats }, false);
+        document.getElementById('search-count').innerText = '';
+        return;
+    }
+
+    const filtered = adminState.allStats.filter(s => s.userId.toLowerCase().includes(q));
+    renderStats({ details: filtered }, false);
+    document.getElementById('search-count').innerText = `${filtered.length} found`;
 }
 
 async function fetchStats() {
@@ -48,16 +80,24 @@ async function fetchStats() {
     }
 
     const stats = await response.json();
-    renderStats(stats);
+    adminState.allStats = stats.details || []; // Update cache
+
+    // Don't re-render if user is currently searching
+    const searchInput = document.getElementById('user-search');
+    if (searchInput && searchInput.value.trim()) {
+        handleSearch(searchInput.value);
+    } else {
+        renderStats(stats);
+    }
 }
 
-function renderStats(data) {
+function renderStats(data, updateSummary = true) {
     if (!data) return;
     const stats = data.details || [];
     const summary = data.summary || { totalUsers: 0, totalContainers: 0, totalTables: 0, totalColumns: 0 };
 
     // Update summary cards
-    if (document.getElementById('stat-users')) {
+    if (updateSummary && document.getElementById('stat-users')) {
         document.getElementById('stat-users').innerText = summary.totalUsers;
         document.getElementById('stat-containers').innerText = summary.totalContainers;
         document.getElementById('stat-tables').innerText = summary.totalTables;
@@ -80,7 +120,7 @@ function renderStats(data) {
             </td>
             <td><span class="stat-badge">${s.containerCount}</span></td>
             <td><span class="stat-badge">${s.tableCount}</span></td>
-            <td style="font-size:0.8rem">${new Date(s.createdAt).toLocaleDateString()}</td>
+            <td style="font-size:0.75rem; color:var(--admin-muted);">${new Date(s.createdAt).toLocaleString()}</td>
             <td>
                 ${s.userId !== 'dev-master-root' ? `
                     <button class="btn-remove" onclick="deleteUser('${s.userId}', event)">Remove User</button>

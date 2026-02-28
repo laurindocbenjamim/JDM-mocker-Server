@@ -358,7 +358,55 @@ curl -X DELETE http://localhost:3000/auth/account \
 
 ---
 
-## 9. Scenarios & Data Integrity
+## 9. Custom Mock Endpoints (Path Overrides)
+
+You can define specific, optional paths for your mock data operations. This allows you to match existing API contracts exactly (e.g., using `/api/v1/users/list` instead of `/:container/:table`).
+
+### 9.1 Initializing Table with Custom Paths
+
+When creating a table, you can send a `_customPaths` object. Each key (`get`, `post`, `put`, `delete`) defines a specific URI that will be mapped to this table.
+
+**Request:**
+```bash
+curl -X POST http://localhost:3000/my-database/users \
+  -H "x-user-id: <your-uuid>" \
+  -H "Authorization: Bearer <your-token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "_init": true,
+    "_customPaths": {
+      "get": "/users/all",
+      "post": "/users/new",
+      "put": "/users/update",
+      "delete": "/users/remove"
+    }
+  }'
+```
+
+### 9.2 Using Custom Endpoints
+
+Once defined, you can use these paths directly. The server automatically resolves them to the correct workspace and table.
+
+**Example GET:**
+```bash
+curl -X GET http://localhost:3000/users/all \
+  -H "x-user-id: <your-uuid>" \
+  -H "Authorization: Bearer <your-token>"
+```
+
+**Example POST:**
+```bash
+curl -X POST http://localhost:3000/users/new \
+  -H "x-user-id: <your-uuid>" \
+  -H "Authorization: Bearer <your-token>" \
+  -d '{"name": "John Doe"}'
+```
+
+*Note: IDs should be appended to the custom path for individual record operations (e.g., `PUT /users/update/<record-id>`).*
+
+---
+
+## 10. Scenarios & Data Integrity
 
 ### Scenario: The Schema Shield
 If you define `age` as a `Number`, the server will reject any `POST`, `PUT`, or `PATCH` that provides a string.

@@ -199,6 +199,44 @@ class JdmMockerTester {
 
             console.log(`\n🎉 All typed validation tests passed successfully!\n`);
 
+            // --- CUSTOM ENDPOINT TESTS ---
+            console.log(`🚀 Starting Custom Endpoint Tests...\n`);
+
+            // C1. Init Table with Custom Paths
+            process.stdout.write('C1. Testing Custom Paths Initialization...');
+            res = await this.request('/test-db/custom-table', {
+                method: 'POST',
+                body: JSON.stringify({
+                    _init: true,
+                    _customPaths: {
+                        get: '/api/get-data',
+                        post: '/api/post-data'
+                    }
+                })
+            });
+            assert.strictEqual(res.status, 201, 'Failed to init custom paths');
+            console.log(` ✅ OK (Status: ${res.status}) - Response: ${JSON.stringify(res.data)}`);
+
+            // C2. Verify Custom Path Resolution (POST)
+            process.stdout.write('C2. Testing Custom Path Resolution (POST)...');
+            res = await this.request('/api/post-data', {
+                method: 'POST',
+                body: JSON.stringify({ test_key: 'custom_value' })
+            });
+            assert.strictEqual(res.status, 201, 'Custom POST resolution failed');
+            const customRecordId = res.data.id;
+            console.log(` ✅ OK (Status: ${res.status}) - Response: ${JSON.stringify(res.data)}`);
+
+            // C3. Verify Custom Path Resolution (GET)
+            process.stdout.write('C3. Testing Custom Path Resolution (GET)...');
+            res = await this.request('/api/get-data', { method: 'GET' });
+            assert.strictEqual(res.status, 200, 'Custom GET resolution failed');
+            assert.ok(Array.isArray(res.data), 'GET should return array');
+            assert.ok(res.data.find(r => r.id === customRecordId), 'Record not found via custom path');
+            console.log(` ✅ OK (Status: ${res.status}) - Response: ${JSON.stringify(res.data)}`);
+
+            console.log(`\n🎉 All custom endpoint tests passed successfully!\n`);
+
             // --- SECURITY & VALIDATION TESTS ---
             console.log(`🛡️ Starting Security & Validation Tests...\n`);
 
