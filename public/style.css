@@ -26,6 +26,15 @@ body {
     height: 100vh;
     display: flex;
     overflow: hidden;
+    flex-direction: row;
+}
+
+@media (max-width: 992px) {
+    body {
+        flex-direction: column;
+        overflow-y: auto;
+        height: auto;
+    }
 }
 
 /* Sidebar Styling */
@@ -36,6 +45,31 @@ aside {
     display: flex;
     flex-direction: column;
     padding: 1.5rem;
+    flex-shrink: 0;
+}
+
+@media (max-width: 992px) {
+    aside {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.75rem 1rem;
+        position: sticky;
+        top: 0;
+        z-index: 2000;
+    }
+
+    .nav-section {
+        display: none;
+        /* Hide nav items on small screens for simplicity or use a toggle */
+    }
+
+    .brand {
+        margin-bottom: 0;
+    }
 }
 
 .brand {
@@ -97,6 +131,15 @@ main {
     transition: padding-bottom 0.3s;
 }
 
+@media (max-width: 992px) {
+    main {
+        padding: 1rem;
+        padding-bottom: 100px;
+        height: auto;
+        overflow-y: visible;
+    }
+}
+
 main.console-minimized {
     padding-bottom: 60px;
 }
@@ -108,6 +151,19 @@ main.console-minimized {
     border-radius: var(--radius);
     padding: 1.5rem;
     box-shadow: var(--shadow);
+}
+
+.grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+}
+
+@media (max-width: 768px) {
+    .grid-2 {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
 }
 
 .card-header {
@@ -150,6 +206,12 @@ label {
     margin-bottom: 0.35rem;
 }
 
+/* Modal Responsiveness */
+#modal-container .card {
+    width: 95%;
+    max-width: 500px;
+}
+
 input,
 select,
 textarea {
@@ -183,6 +245,12 @@ input:focus {
 .btn-primary {
     background: var(--primary);
     color: #fff;
+}
+
+@media (max-width: 600px) {
+    .btn {
+        width: 100%;
+    }
 }
 
 .btn-primary:hover {
@@ -242,7 +310,14 @@ td {
     flex-direction: column;
     box-shadow: 0 -4px 6px -1px rgb(0 0 0 / 0.1);
     z-index: 1000;
-    transition: height 0.3s;
+    transition: height 0.3s, left 0.3s;
+}
+
+@media (max-width: 992px) {
+    #log-panel {
+        left: 0;
+        height: 200px;
+    }
 }
 
 #log-panel.minimized {
@@ -414,6 +489,7 @@ tr.editing-row td {
 .toast-warning {
     border-left-color: #f59e0b;
 }
+
 /* Column List Component */
 .column-list {
     display: flex;

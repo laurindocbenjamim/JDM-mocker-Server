@@ -9,13 +9,21 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap"
         rel="stylesheet">
+    <link rel="icon" type="image/png" href="/assets/favicon.png">
 </head>
 
 <body class="admin-mode">
     <div id="toast-container"></div>
     <div id="login-screen">
         <div class="admin-card login-form">
-            <h1 style="text-align:center; margin-bottom:1.5rem; color:var(--admin-primary); font-weight:800;">DEVELOPER
+            <div class="brand" style="justify-content:center; margin-bottom:1.5rem;">
+                <img src="/assets/logo.png" alt="JDM Mocker Logo"
+                    style="width: 48px; height: 48px; object-fit: contain;">
+                <span>JDM MOCKER</span>
+            </div>
+            <h1
+                style="text-align:center; margin-bottom:1.5rem; color:var(--admin-primary); font-weight:800; font-size:1.1rem; opacity:0.8; letter-spacing:1px;">
+                DEVELOPER
                 ADMIN</h1>
             <div class="input-group">
                 <label>Developer Email</label>
@@ -40,8 +48,12 @@
     <div id="admin-dashboard" class="hidden" style="max-width: 1200px; margin: 0 auto;">
         <header style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2rem;">
             <div>
-                <h1 style="font-size:1.5rem; font-weight:800; color:var(--admin-primary);">Platform Overview</h1>
-                <p style="color:var(--admin-muted)">Manage users and global resources</p>
+                <div class="brand" style="margin-bottom:0.25rem;">
+                    <img src="/assets/logo.png" alt="JDM Mocker Logo"
+                        style="width: 28px; height: 28px; object-fit: contain;">
+                    <span>JDM MOCKER</span>
+                </div>
+                <p style="color:var(--admin-muted); font-size:0.85rem">Platform Overview & Global Resources</p>
             </div>
             <div style="display:flex; gap:1rem; align-items:center;">
                 <a href="/crud-example" class="btn-remove"
@@ -52,8 +64,7 @@
             </div>
         </header>
 
-        <div class="summary-grid"
-            style="display:grid; grid-template-columns: repeat(4, 1fr); gap:1.5rem; margin-bottom:2rem;">
+        <div class="summary-grid">
             <div class="admin-card" style="padding:1.5rem; text-align:center;">
                 <div style="font-size:0.85rem; color:var(--admin-muted); margin-bottom:0.5rem;">Total Users</div>
                 <div id="stat-users" style="font-size:1.75rem; font-weight:800; color:var(--admin-primary)">0</div>
