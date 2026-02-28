@@ -1,5 +1,5 @@
 {
-  "name": "@feti/jdm-mocker-server-atlas",
+  "name": "@feti/jdm-mock-server-atlas",
   "version": "1.0.0",
   "description": "Multi-Tenant JSON Database Engine",
   "main": "server.js",

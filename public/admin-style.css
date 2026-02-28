@@ -1,0 +1,120 @@
+/* Dedicated Styles for JDM Developer Dashboard */
+:root {
+    --admin-bg: #0f172a;
+    --admin-card: #1e293b;
+    --admin-border: #334155;
+    --admin-text: #f8fafc;
+    --admin-muted: #94a3b8;
+    --admin-primary: #3b82f6;
+    --admin-danger: #ef4444;
+}
+
+body.admin-mode {
+    background-color: var(--admin-bg);
+    color: var(--admin-text);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    margin: 0;
+}
+
+.admin-card {
+    background: var(--admin-card);
+    border: 1px solid var(--admin-border);
+    border-radius: 12px;
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.4);
+}
+
+.table-container {
+    width: 100%;
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+th,
+td {
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--admin-border);
+}
+
+th {
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--admin-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+}
+
+tr:hover {
+    background: rgba(255, 255, 255, 0.01);
+}
+
+.stat-badge {
+    background: #1e3a8a;
+    color: #93c5fd;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 0.75rem;
+}
+
+.btn-remove {
+    background: transparent;
+    border: 1px solid #7f1d1d;
+    color: #fca5a5;
+    padding: 4px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.2s;
+}
+
+.btn-remove:hover {
+    background: #7f1d1d;
+    color: white;
+}
+
+#login-screen {
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.login-form {
+    width: 100%;
+    max-width: 400px;
+    padding: 2rem;
+}
+
+.input-group {
+    margin-bottom: 1.5rem;
+}
+
+.input-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--admin-muted);
+    font-size: 0.85rem;
+}
+
+.input-group input {
+    width: 100%;
+    background: #0f172a;
+    border: 1px solid var(--admin-border);
+    color: white;
+    padding: 0.75rem;
+    border-radius: 8px;
+    box-sizing: border-box;
+}
+
+.input-group input:focus {
+    outline: none;
+    border-color: var(--admin-primary);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}

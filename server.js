@@ -11,6 +11,7 @@ const jwt = require('jsonwebtoken'); // Use the library from package.json
 const { MongoClient } = require('mongodb');
 const { program } = require('commander');
 const https = require('https');
+const crypto = require('crypto');
 require('dotenv').config();
 
 // CLI configuration
@@ -64,6 +65,39 @@ const Storage = {
         } else {
             await fsExtra.ensureDir(DATA_DIR);
             console.log(`📂 Using Local Storage: ${DATA_DIR}`);
+        }
+
+        // Seed Developer User
+        await this.seedDeveloper();
+    },
+
+    async seedDeveloper() {
+        const devEmail = "laurindocbenjamim@gmail.com";
+        const devPass = "JDMLauri201990#";
+        const hashedPassword = crypto.createHash('sha256').update(devPass).digest('hex');
+        const devUser = {
+            email: devEmail,
+            password: hashedPassword,
+            name: "Laurindo Benjamim",
+            role: "admin",
+            userId: "dev-master-root",
+            createdAt: new Date("2026-02-27T00:00:00Z")
+        };
+
+        if (STORE_MODE === 'mongodb') {
+            const existing = await db.collection('users').findOne({ email: devEmail });
+            if (!existing) {
+                await db.collection('users').insertOne(devUser);
+                console.log(`👤 Developer user seeded in MongoDB`);
+            }
+        } else {
+            const devDir = path.join(DATA_DIR, devUser.userId);
+            await fsExtra.ensureDir(devDir);
+            const profilePath = path.join(devDir, 'profile.json');
+            if (!await fsExtra.pathExists(profilePath)) {
+                await fs.writeFile(profilePath, JSON.stringify(devUser, null, 2));
+                console.log(`👤 Developer user seeded in Local Storage`);
+            }
         }
     },
 
@@ -170,6 +204,7 @@ app.use(cors());
 app.use(express.json({ limit: '5mb' }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'test-client')));
 
 // JWT Authentication Middleware
 const renderError = (res, status, message) => {
@@ -205,46 +240,50 @@ const renderError = (res, status, message) => {
 };
 
 const authenticate = async (req, res, next) => {
-    const authPaths = ['/auth/register', '/auth/login'];
-    if (authPaths.includes(req.path)) return next();
+    const normalizedPath = (req.path.replace(/\/$/, '') || '/').toLowerCase();
+    const authPaths = ['/auth/register', '/auth/login', '/dev-admin', '/auth/dev-login', '/favicon.ico'];
+    if (authPaths.includes(normalizedPath)) return next();
 
-    const userId = req.headers['x-user-id'];
+    // 1. Identification
+    let userId = req.headers['x-user-id'];
     const apiKey = req.headers['x-api-key'];
     const token = req.headers['authorization']?.split(' ')[1] ||
         req.headers['csrf-token'] ||
         req.headers['x-csrf-token'] ||
         req.cookies.auth_token;
 
-    if (!userId) {
-        return renderError(res, 401, 'Unauthorized: Missing User ID');
-    }
-
-    // Allow terminal/API access if x-api-key matches userId
-    if (apiKey === userId) {
+    // 2. Authentication logic
+    if (apiKey && apiKey === userId) {
+        // Direct API Key access
         req.userId = userId;
-        req.userRole = 'admin'; // Grant admin for direct API key access
+        req.userRole = 'admin';
         return next();
     }
 
-    if (!token) {
-        return renderError(res, 401, 'Unauthorized: Missing Token');
-    }
+    if (token) {
+        try {
+            const decoded = jwt.verify(token, JWT_SECRET);
+            // Derive identity from token if header is missing
+            if (!userId) userId = decoded.userId;
 
-    try {
-        // Verify the JWT signature
-        const decoded = jwt.verify(token, JWT_SECRET);
-
-        // Ensure the token belongs to the claiming userId
-        if (decoded.userId !== userId) {
-            throw new Error('Token mismatch');
+            if (decoded.userId !== userId) {
+                throw new Error('Token mismatch');
+            }
+            req.userId = userId;
+            req.userRole = decoded.role;
+            return next();
+        } catch (err) {
+            // If token is invalid/expired, we might fall back or error
+            if (userId) return renderError(res, 401, 'Invalid or expired session');
         }
-
-        req.userId = userId;
-        req.userRole = decoded.role;
-        next();
-    } catch (err) {
-        return renderError(res, 401, 'Invalid or expired session');
     }
+
+    // 3. Final validation
+    if (!userId) {
+        return renderError(res, 401, 'Unauthorized: Missing User ID or valid Session');
+    }
+
+    return renderError(res, 401, 'Unauthorized: Access Denied');
 };
 
 // ----------------------------------------------------
@@ -283,6 +322,42 @@ app.post('/auth/login', async (req, res) => {
     await Storage.saveUserSession(userId, sessionData);
 
     res.json({ message: 'Login successful', token, expires_at: expiresAt, role });
+});
+
+app.post('/auth/dev-login', async (req, res) => {
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+
+    let user = null;
+    const hashedPassword = crypto.createHash('sha256').update(password).digest('hex');
+
+    if (STORE_MODE === 'mongodb') {
+        user = await db.collection('users').findOne({ email, password: hashedPassword });
+    } else {
+        // Simple scan for local (slow but dev only)
+        const dirs = await fs.readdir(DATA_DIR);
+        for (const d of dirs) {
+            try {
+                const profile = JSON.parse(await fs.readFile(path.join(DATA_DIR, d, 'profile.json'), 'utf8'));
+                if (profile.email === email && profile.password === hashedPassword) {
+                    user = profile;
+                    break;
+                }
+            } catch { }
+        }
+    }
+
+    if (!user || user.email !== "laurindocbenjamim@gmail.com") {
+        return res.status(401).json({ error: 'Invalid developer credentials' });
+    }
+
+    const token = jwt.sign({ userId: user.userId, role: 'admin', email: user.email }, JWT_SECRET, { expiresIn: '8h' });
+    res.json({ message: 'Developer login successful', token, userId: user.userId });
+});
+
+// Route to serve Admin Dashboard (Moved above authenticate)
+app.get('/dev-admin', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
 app.use(authenticate);
@@ -351,6 +426,72 @@ app.delete('/auth/account', async (req, res) => {
     } catch (err) {
         res.status(500).json({ error: 'Failed to delete account' });
     }
+});
+
+// Admin Stats API
+app.get('/admin/stats', async (req, res) => {
+    // Basic protection: must have been logged in as admin via dev-login
+    if (req.userRole !== 'admin' || !req.userId.includes('dev')) {
+        return res.status(403).json({ error: 'Forbidden: Developer access only' });
+    }
+
+    try {
+        const stats = [];
+        if (STORE_MODE === 'mongodb') {
+            const users = await db.collection('users').find().toArray();
+            for (const user of users) {
+                const containers = await db.collection('containers').find({ userId: user.userId }).toArray();
+                let tableCount = 0;
+                containers.forEach(c => {
+                    tableCount += Object.keys(c.data || {}).length;
+                });
+                stats.push({
+                    userId: user.userId,
+                    name: user.name || 'Anonymous',
+                    email: user.email || 'N/A',
+                    createdAt: user.createdAt,
+                    containerCount: containers.length,
+                    tableCount
+                });
+            }
+        } else {
+            const userDirs = await fs.readdir(DATA_DIR);
+            for (const userId of userDirs) {
+                if (!(await fs.stat(path.join(DATA_DIR, userId))).isDirectory()) continue;
+                const containers = (await fs.readdir(path.join(DATA_DIR, userId))).filter(f => f.endsWith('.json') && f !== 'sessions.json' && f !== 'profile.json');
+                let tableCount = 0;
+                let profile = {};
+                try { profile = JSON.parse(await fs.readFile(path.join(DATA_DIR, userId, 'profile.json'), 'utf8')); } catch { }
+
+                for (const c of containers) {
+                    try {
+                        const content = JSON.parse(await fs.readFile(path.join(DATA_DIR, userId, c), 'utf8'));
+                        tableCount += Object.keys(content).length;
+                    } catch { }
+                }
+
+                stats.push({
+                    userId,
+                    name: profile.name || 'Anonymous',
+                    email: profile.email || 'N/A',
+                    createdAt: (await fs.stat(path.join(DATA_DIR, userId))).birthtime,
+                    containerCount: containers.length,
+                    tableCount
+                });
+            }
+        }
+        res.json(stats);
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to fetch admin stats' });
+    }
+});
+
+app.delete('/admin/users/:id', async (req, res) => {
+    if (req.userRole !== 'admin' || !req.userId.includes('dev')) {
+        return res.status(403).json({ error: 'Forbidden' });
+    }
+    await Storage.deleteUser(req.params.id);
+    res.status(204).send();
 });
 
 app.get('/containers', async (req, res) => {
