@@ -27,6 +27,7 @@ const DATA_DIR = path.resolve(options.dbDir);
 const STORE_MODE = process.env.STORE_DATA_IN || 'local';
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key';
 
+const JDM_VERSION = "1.1.0-AUTH-FIX";
 const app = express();
 let db = null;
 let mongoClient = null;
@@ -204,7 +205,7 @@ app.use(cors());
 app.use(express.json({ limit: '5mb' }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(express.static(path.join(__dirname, 'test-client')));
+// Consolidating all dashboard assets to /public
 
 // JWT Authentication Middleware
 const renderError = (res, status, message) => {
@@ -241,8 +242,23 @@ const renderError = (res, status, message) => {
 
 const authenticate = async (req, res, next) => {
     const normalizedPath = (req.path.replace(/\/$/, '') || '/').toLowerCase();
-    const authPaths = ['/auth/register', '/auth/login', '/dev-admin', '/auth/dev-login', '/favicon.ico'];
-    if (authPaths.includes(normalizedPath)) return next();
+    const authPaths = [
+        '/auth/register',
+        '/auth/login',
+        '/dev-admin',
+        '/auth/dev-login',
+        '/favicon.ico',
+        '/admin.html',
+        '/admin-app.js',
+        '/admin-style.css',
+        '/index.html',
+        '/app.js',
+        '/style.css'
+    ];
+
+    if (authPaths.includes(normalizedPath) || normalizedPath.startsWith('/public/')) {
+        return next();
+    }
 
     // 1. Identification
     let userId = req.headers['x-user-id'];
@@ -280,9 +296,11 @@ const authenticate = async (req, res, next) => {
 
     // 3. Final validation
     if (!userId) {
+        console.warn(`[AUTH] Blocked ${req.method} ${req.path} - Missing Identity`);
         return renderError(res, 401, 'Unauthorized: Missing User ID or valid Session');
     }
 
+    console.warn(`[AUTH] Blocked ${req.method} ${req.path} - Forbidden for User ${userId}`);
     return renderError(res, 401, 'Unauthorized: Access Denied');
 };
 
@@ -428,10 +446,9 @@ app.delete('/auth/account', async (req, res) => {
     }
 });
 
-// Admin Stats API
 app.get('/admin/stats', async (req, res) => {
-    // Basic protection: must have been logged in as admin via dev-login
-    if (req.userRole !== 'admin' || !req.userId.includes('dev')) {
+    // Verified via 'admin' role in derived token
+    if (req.userRole !== 'admin') {
         return res.status(403).json({ error: 'Forbidden: Developer access only' });
     }
 
@@ -487,7 +504,8 @@ app.get('/admin/stats', async (req, res) => {
 });
 
 app.delete('/admin/users/:id', async (req, res) => {
-    if (req.userRole !== 'admin' || !req.userId.includes('dev')) {
+    // Verified via 'admin' role in derived token
+    if (req.userRole !== 'admin') {
         return res.status(403).json({ error: 'Forbidden' });
     }
     await Storage.deleteUser(req.params.id);
@@ -790,7 +808,7 @@ const startServer = async () => {
         }, app) : app;
 
     server.listen(PORT, () => {
-        console.log(`🚀 Server running in ${STORE_MODE} mode on http${options.ssl ? 's' : ''}://localhost:${PORT}`);
+        console.log(`🚀 JDM Mocker ${JDM_VERSION} running in ${STORE_MODE} mode on http${options.ssl ? 's' : ''}://localhost:${PORT}`);
     });
 };
 

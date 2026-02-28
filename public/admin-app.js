@@ -76,16 +76,23 @@ function renderStats(stats) {
 async function deleteUser(id) {
     if (!confirm('Permanently wipe this user and all their data?')) return;
 
-    const headers = { 'Authorization': `Bearer ${adminState.token}` };
-    if (adminState.userId) headers['x-user-id'] = adminState.userId;
+    try {
+        const headers = { 'Authorization': `Bearer ${adminState.token}` };
+        if (adminState.userId) headers['x-user-id'] = adminState.userId;
 
-    const response = await fetch(`${BASE_URL}/admin/users/${id}`, {
-        method: 'DELETE',
-        headers
-    });
+        const response = await fetch(`${BASE_URL}/admin/users/${id}`, {
+            method: 'DELETE',
+            headers
+        });
 
-    if (response.ok) {
-        fetchStats();
+        if (response.ok) {
+            await fetchStats();
+        } else {
+            const err = await response.json().catch(() => ({ error: 'Unknown server error' }));
+            alert(`Failed: ${err.error}`);
+        }
+    } catch (err) {
+        alert('Deletion failed');
     }
 }
 

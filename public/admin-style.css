@@ -25,7 +25,29 @@ body.admin-mode {
 
 .table-container {
     width: 100%;
+    max-height: 65vh;
+    overflow-y: auto;
     overflow-x: auto;
+}
+
+/* Custom Scrollbar for Admin Theme */
+.table-container::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.table-container::-webkit-scrollbar-track {
+    background: rgba(15, 23, 42, 0.5);
+    border-radius: 4px;
+}
+
+.table-container::-webkit-scrollbar-thumb {
+    background: var(--admin-border);
+    border-radius: 4px;
+}
+
+.table-container::-webkit-scrollbar-thumb:hover {
+    background: var(--admin-muted);
 }
 
 table {
@@ -42,12 +64,17 @@ td {
 }
 
 th {
-    background: rgba(255, 255, 255, 0.03);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #1e293b;
+    /* Match admin-card background for sticky headers */
     color: var(--admin-muted);
     font-weight: 600;
     text-transform: uppercase;
     font-size: 0.75rem;
     letter-spacing: 0.05em;
+    box-shadow: inset 0 -1px 0 var(--admin-border);
 }
 
 tr:hover {
@@ -117,4 +144,14 @@ tr:hover {
     outline: none;
     border-color: var(--admin-primary);
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.hidden {
+    display: none !important;
+}
+
+#admin-dashboard {
+    min-height: 100vh;
+    padding: 2rem;
+    box-sizing: border-box;
 }
