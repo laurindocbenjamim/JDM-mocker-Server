@@ -55,7 +55,13 @@ function renderStats(stats) {
     if (!Array.isArray(stats)) return;
     const tbody = document.getElementById('stats-tbody');
     tbody.innerHTML = stats.map(s => `
-        <tr>
+        <tr data-user-id="${s.userId}">
+            <td>
+                ${s.userId !== 'dev-master-root' ? `
+                    <input type="checkbox" class="selection-checkbox row-checkbox" 
+                        onchange="updateActionBar()" value="${s.userId}">
+                ` : ''}
+            </td>
             <td>
                 <div style="font-weight:700">${s.name}</div>
                 <div style="font-size:0.7rem; color:var(--admin-muted); font-family:'Fira Code'">${s.userId}</div>
@@ -66,15 +72,26 @@ function renderStats(stats) {
             <td style="font-size:0.8rem">${new Date(s.createdAt).toLocaleDateString()}</td>
             <td>
                 ${s.userId !== 'dev-master-root' ? `
-                    <button class="btn-remove" onclick="deleteUser('${s.userId}')">Remove User</button>
+                    <button class="btn-remove" onclick="deleteUser('${s.userId}', event)">Remove User</button>
                 ` : '<span style="color:var(--admin-primary); font-weight:800">Master Root</span>'}
             </td>
         </tr>
     `).join('');
+    updateActionBar();
 }
 
-async function deleteUser(id) {
+async function deleteUser(id, e) {
     if (!confirm('Permanently wipe this user and all their data?')) return;
+
+    // Optimistic UI: Find and remove the row immediately
+    const btn = e ? e.target : event.target;
+    const row = btn.closest('tr');
+    if (row) {
+        row.style.opacity = '0.5';
+        row.style.pointerEvents = 'none';
+        // Optional: transition out before removal
+        setTimeout(() => row.remove(), 300);
+    }
 
     try {
         const headers = { 'Authorization': `Bearer ${adminState.token}` };
@@ -85,14 +102,82 @@ async function deleteUser(id) {
             headers
         });
 
-        if (response.ok) {
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({ error: response.status === 404 ? 'Endpoint not found. Please restart the server.' : 'Unknown server error' }));
+            alert(`Failed (${response.status}): ${err.error}`);
+            // On failure, we should probably fetchStats to restore the row
             await fetchStats();
-        } else {
-            const err = await response.json().catch(() => ({ error: 'Unknown server error' }));
-            alert(`Failed: ${err.error}`);
         }
     } catch (err) {
         alert('Deletion failed');
+        await fetchStats();
+    }
+}
+
+function updateActionBar() {
+    const checked = document.querySelectorAll('.row-checkbox:checked');
+    const bar = document.getElementById('bulk-actions-bar');
+    const count = document.getElementById('selection-count');
+
+    if (checked.length > 0) {
+        bar.classList.add('active');
+        count.innerText = `${checked.length} users selected`;
+    } else {
+        bar.classList.remove('active');
+        document.getElementById('select-all').checked = false;
+    }
+}
+
+function toggleSelectAll(checked) {
+    document.querySelectorAll('.row-checkbox').forEach(cb => {
+        cb.checked = checked;
+    });
+    updateActionBar();
+}
+
+function clearSelection() {
+    document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false);
+    document.getElementById('select-all').checked = false;
+    updateActionBar();
+}
+
+async function deleteSelectedUsers() {
+    const selected = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => cb.value);
+    if (selected.length === 0) return;
+    if (!confirm(`Are you sure you want to PERMANENTLY delete these ${selected.length} users?`)) return;
+
+    // Optimistic UI
+    selected.forEach(id => {
+        const row = document.querySelector(`tr[data-user-id="${id}"]`);
+        if (row) {
+            row.style.opacity = '0.5';
+            row.style.pointerEvents = 'none';
+            setTimeout(() => row.remove(), 300);
+        }
+    });
+    document.getElementById('bulk-actions-bar').classList.remove('active');
+
+    try {
+        const headers = {
+            'Authorization': `Bearer ${adminState.token}`,
+            'Content-Type': 'application/json'
+        };
+        if (adminState.userId) headers['x-user-id'] = adminState.userId;
+
+        const response = await fetch(`${BASE_URL}/admin/users/bulk-delete`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ userIds: selected })
+        });
+
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({ error: response.status === 404 ? 'Bulk endpoint not found. Please restart the server.' : 'Unknown server error' }));
+            alert(`Bulk deletion failed (${response.status}): ${err.error}`);
+            await fetchStats();
+        }
+    } catch (err) {
+        alert('Network error during bulk deletion');
+        await fetchStats();
     }
 }
 

@@ -30,14 +30,25 @@
         </div>
     </div>
 
+    <div id="bulk-actions-bar">
+        <span id="selection-count">0 users selected</span>
+        <button class="bulk-btn danger" onclick="deleteSelectedUsers()">Delete Selected</button>
+        <button class="bulk-btn" onclick="clearSelection()">Cancel</button>
+    </div>
+
     <div id="admin-dashboard" class="hidden" style="max-width: 1200px; margin: 0 auto;">
         <header style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2rem;">
             <div>
                 <h1 style="font-size:1.5rem; font-weight:800; color:var(--admin-primary);">Platform Overview</h1>
                 <p style="color:var(--admin-muted)">Manage users and global resources</p>
             </div>
-            <button class="btn-remove" style="border-color:var(--admin-muted); color:var(--admin-muted);"
-                onclick="logout()">Logout</button>
+            <div style="display:flex; gap:1rem; align-items:center;">
+                <a href="/crud-example" class="btn-remove"
+                    style="border-color:var(--admin-primary); color:var(--admin-primary); text-decoration:none; display:inline-block; line-height:1.5;">Open
+                    Client CRUD</a>
+                <button class="btn-remove" style="border-color:var(--admin-muted); color:var(--admin-muted);"
+                    onclick="logout()">Logout</button>
+            </div>
         </header>
 
         <div class="admin-card" style="padding:0; overflow:hidden;">
@@ -45,6 +56,10 @@
                 <table>
                     <thead>
                         <tr>
+                            <th style="width: 40px;">
+                                <input type="checkbox" id="select-all" class="selection-checkbox"
+                                    onclick="toggleSelectAll(this.checked)">
+                            </th>
                             <th>Developer/User</th>
                             <th>Containers</th>
                             <th>Total Tables</th>

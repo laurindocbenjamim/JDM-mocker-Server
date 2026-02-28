@@ -251,6 +251,8 @@ const authenticate = async (req, res, next) => {
         '/admin.html',
         '/admin-app.js',
         '/admin-style.css',
+        '/crud-example',
+        '/crud-xample', // Failsafe for user typo
         '/index.html',
         '/app.js',
         '/style.css'
@@ -373,9 +375,14 @@ app.post('/auth/dev-login', async (req, res) => {
     res.json({ message: 'Developer login successful', token, userId: user.userId });
 });
 
-// Route to serve Admin Dashboard (Moved above authenticate)
+// Route to serve Admin Dashboard
 app.get('/dev-admin', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
+// Route to serve Client CRUD Example
+app.get('/crud-example', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.use(authenticate);
@@ -453,51 +460,57 @@ app.get('/admin/stats', async (req, res) => {
     }
 
     try {
-        const stats = [];
         if (STORE_MODE === 'mongodb') {
             const users = await db.collection('users').find().toArray();
-            for (const user of users) {
+            const stats = await Promise.all(users.map(async (user) => {
                 const containers = await db.collection('containers').find({ userId: user.userId }).toArray();
                 let tableCount = 0;
                 containers.forEach(c => {
                     tableCount += Object.keys(c.data || {}).length;
                 });
-                stats.push({
+                return {
                     userId: user.userId,
                     name: user.name || 'Anonymous',
                     email: user.email || 'N/A',
                     createdAt: user.createdAt,
                     containerCount: containers.length,
                     tableCount
-                });
-            }
+                };
+            }));
+            res.json(stats);
         } else {
-            const userDirs = await fs.readdir(DATA_DIR);
-            for (const userId of userDirs) {
-                if (!(await fs.stat(path.join(DATA_DIR, userId))).isDirectory()) continue;
-                const containers = (await fs.readdir(path.join(DATA_DIR, userId))).filter(f => f.endsWith('.json') && f !== 'sessions.json' && f !== 'profile.json');
+            const userDirs = (await fs.readdir(DATA_DIR)).filter(d => {
+                try { return fsExtra.statSync(path.join(DATA_DIR, d)).isDirectory(); } catch { return false; }
+            });
+
+            const stats = await Promise.all(userDirs.map(async (userId) => {
+                const userPath = path.join(DATA_DIR, userId);
+                const files = await fs.readdir(userPath);
+                const containers = files.filter(f => f.endsWith('.json') && f !== 'sessions.json' && f !== 'profile.json');
+
                 let tableCount = 0;
                 let profile = {};
-                try { profile = JSON.parse(await fs.readFile(path.join(DATA_DIR, userId, 'profile.json'), 'utf8')); } catch { }
+                try { profile = JSON.parse(await fs.readFile(path.join(userPath, 'profile.json'), 'utf8')); } catch { }
 
-                for (const c of containers) {
+                await Promise.all(containers.map(async (c) => {
                     try {
-                        const content = JSON.parse(await fs.readFile(path.join(DATA_DIR, userId, c), 'utf8'));
+                        const content = JSON.parse(await fs.readFile(path.join(userPath, c), 'utf8'));
                         tableCount += Object.keys(content).length;
                     } catch { }
-                }
+                }));
 
-                stats.push({
+                const stat = await fs.stat(userPath);
+                return {
                     userId,
-                    name: profile.name || 'Anonymous',
+                    name: profile.name || profile.userId || 'Anonymous',
                     email: profile.email || 'N/A',
-                    createdAt: (await fs.stat(path.join(DATA_DIR, userId))).birthtime,
+                    createdAt: stat.birthtime,
                     containerCount: containers.length,
                     tableCount
-                });
-            }
+                };
+            }));
+            res.json(stats);
         }
-        res.json(stats);
     } catch (err) {
         res.status(500).json({ error: 'Failed to fetch admin stats' });
     }
@@ -510,6 +523,21 @@ app.delete('/admin/users/:id', async (req, res) => {
     }
     await Storage.deleteUser(req.params.id);
     res.status(204).send();
+});
+
+app.post('/admin/users/bulk-delete', async (req, res) => {
+    if (req.userRole !== 'admin') {
+        return res.status(403).json({ error: 'Forbidden' });
+    }
+    const { userIds } = req.body;
+    if (!Array.isArray(userIds)) return res.status(400).json({ error: 'userIds array required' });
+
+    try {
+        await Promise.all(userIds.map(id => Storage.deleteUser(id)));
+        res.status(200).json({ message: `Successfully removed ${userIds.length} users` });
+    } catch (err) {
+        res.status(500).json({ error: 'Bulk deletion failed' });
+    }
 });
 
 app.get('/containers', async (req, res) => {

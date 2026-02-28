@@ -155,3 +155,52 @@ tr:hover {
     padding: 2rem;
     box-sizing: border-box;
 }
+#bulk-actions-bar {
+    position: fixed;
+    top: 1rem;
+    left: 50%;
+    transform: translateX(-50%) translateY(-150%);
+    background: var(--admin-primary);
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 50px;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.5);
+    z-index: 1000;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+#bulk-actions-bar.active {
+    transform: translateX(-50%) translateY(0);
+}
+
+.selection-checkbox {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--admin-primary);
+}
+
+.bulk-btn {
+    background: white;
+    color: var(--admin-primary);
+    border: none;
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.bulk-btn:hover {
+    background: #f8fafc;
+    transform: scale(1.05);
+}
+
+.bulk-btn.danger {
+    background: var(--admin-danger);
+    color: white;
+}
