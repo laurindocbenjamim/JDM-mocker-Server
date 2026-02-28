@@ -1,0 +1,206 @@
+/* Dedicated Styles for JDM Developer Dashboard */
+:root {
+    --admin-bg: #0f172a;
+    --admin-card: #1e293b;
+    --admin-border: #334155;
+    --admin-text: #f8fafc;
+    --admin-muted: #94a3b8;
+    --admin-primary: #3b82f6;
+    --admin-danger: #ef4444;
+}
+
+body.admin-mode {
+    background-color: var(--admin-bg);
+    color: var(--admin-text);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    margin: 0;
+}
+
+.admin-card {
+    background: var(--admin-card);
+    border: 1px solid var(--admin-border);
+    border-radius: 12px;
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.4);
+}
+
+.table-container {
+    width: 100%;
+    max-height: 65vh;
+    overflow-y: auto;
+    overflow-x: auto;
+}
+
+/* Custom Scrollbar for Admin Theme */
+.table-container::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.table-container::-webkit-scrollbar-track {
+    background: rgba(15, 23, 42, 0.5);
+    border-radius: 4px;
+}
+
+.table-container::-webkit-scrollbar-thumb {
+    background: var(--admin-border);
+    border-radius: 4px;
+}
+
+.table-container::-webkit-scrollbar-thumb:hover {
+    background: var(--admin-muted);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+th,
+td {
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--admin-border);
+}
+
+th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #1e293b;
+    /* Match admin-card background for sticky headers */
+    color: var(--admin-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    box-shadow: inset 0 -1px 0 var(--admin-border);
+}
+
+tr:hover {
+    background: rgba(255, 255, 255, 0.01);
+}
+
+.stat-badge {
+    background: #1e3a8a;
+    color: #93c5fd;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 0.75rem;
+}
+
+.btn-remove {
+    background: transparent;
+    border: 1px solid #7f1d1d;
+    color: #fca5a5;
+    padding: 4px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.2s;
+}
+
+.btn-remove:hover {
+    background: #7f1d1d;
+    color: white;
+}
+
+#login-screen {
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.login-form {
+    width: 100%;
+    max-width: 400px;
+    padding: 2rem;
+}
+
+.input-group {
+    margin-bottom: 1.5rem;
+}
+
+.input-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--admin-muted);
+    font-size: 0.85rem;
+}
+
+.input-group input {
+    width: 100%;
+    background: #0f172a;
+    border: 1px solid var(--admin-border);
+    color: white;
+    padding: 0.75rem;
+    border-radius: 8px;
+    box-sizing: border-box;
+}
+
+.input-group input:focus {
+    outline: none;
+    border-color: var(--admin-primary);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.hidden {
+    display: none !important;
+}
+
+#admin-dashboard {
+    min-height: 100vh;
+    padding: 2rem;
+    box-sizing: border-box;
+}
+#bulk-actions-bar {
+    position: fixed;
+    top: 1rem;
+    left: 50%;
+    transform: translateX(-50%) translateY(-150%);
+    background: var(--admin-primary);
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 50px;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.5);
+    z-index: 1000;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+#bulk-actions-bar.active {
+    transform: translateX(-50%) translateY(0);
+}
+
+.selection-checkbox {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--admin-primary);
+}
+
+.bulk-btn {
+    background: white;
+    color: var(--admin-primary);
+    border: none;
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.bulk-btn:hover {
+    background: #f8fafc;
+    transform: scale(1.05);
+}
+
+.bulk-btn.danger {
+    background: var(--admin-danger);
+    color: white;
+}

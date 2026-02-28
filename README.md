@@ -78,3 +78,9 @@ Para veres a performance real do servidor sem o bloqueio do simulador, tenta:
 ## API Documentation
 
 For detailed instructions on how to interact with the API endpoints (including using `curl` and `fetch`), please refer to [API.md](./API.md).
+
+# Pratical Mock Example with JavaScript
+```markdown
+Check out the [test-client/app.js](https://github.com/laurindocbenjamim/JDM-mocker-Server/blob/dev/test-client/app.js) for a full implementation example.
+```
+

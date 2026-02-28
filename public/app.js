@@ -1,4 +1,4 @@
-const BASE_URL = 'https://jdm-mock-server.onrender.com'//'http://localhost:3000';
+const BASE_URL = ''; // Relative path for local/prod compatibility
 
 // Global State
 let state = {

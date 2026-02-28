@@ -79,6 +79,18 @@ All data management endpoints (`/:container/:table`) require **BOTH**:
    - `Authorization: Bearer <your-token>`
    - *OR* `CSRF-Token: <your-token>`
    - *OR* `x-csrf-token: <your-token>`
+
+### 4.1 Direct Access (API Key)
+
+For programmatic access (e.g., from a backend script), you can bypass the token handshake by using a persistent API Key. User ID is still required for workspace isolation.
+
+**Request:**
+```bash
+curl -X GET http://localhost:3000/containers \
+  -H "x-user-id: <your-uuid>" \
+  -H "x-api-key: <your-api-key>"
+```
+
 ### Role-Based Access Control (RBAC)
 When generating your token via `/auth/login`, if you set `"role": "admin"`, you can securely perform `POST`, `PUT`, `DELETE` and `PATCH` actions. Viewers will receive `403 Forbidden`.
 
@@ -191,6 +203,25 @@ curl -X GET http://localhost:3000/introspect \
   -H "Authorization: Bearer <your-token>"
 ```
 
+**Example Introspection Response:**
+```json
+{
+  "storage": {
+    "my-container": {
+      "my-table": {
+        "_schema": {
+          "name": "String",
+          "age": "Number",
+          "is_active": "Boolean"
+        },
+        "records": [...]
+      }
+    }
+  },
+  "role": "admin"
+}
+```
+
 **2. List all containers (JSON files)**
 ```bash
 curl -X GET http://localhost:3000/containers \
@@ -223,7 +254,8 @@ curl -X PATCH http://localhost:3000/my-database/users/rename \
   -d '{"newName": "customers"}'
 ```
 
-**6. Bulk Schema Update (remove, rename, or set fields across all records)**
+**6. Bulk Record Transformation (Schema Logic)**
+Update fields across **all** existing records in a table.
 ```bash
 curl -X PATCH http://localhost:3000/my-database/users/schema \
   -H "x-user-id: <your-uuid>" \
@@ -235,6 +267,20 @@ curl -X PATCH http://localhost:3000/my-database/users/schema \
     "set": {"status": "active"}
   }'
 ```
+
+**7. Define Validation Schema**
+Specify data types for columns to enforce integrity. Supported types: `String`, `Number`, `Boolean`, `Date`.
+```bash
+curl -X PATCH http://localhost:3000/my-database/users/schema-definition \
+  -H "x-user-id: <your-uuid>" \
+  -H "Authorization: Bearer <your-token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "price",
+    "type": "Number"
+  }'
+```
+*To remove a validation rule: `{"remove": "price"}`*
 
 ### Data Ops (CRUD)
 
@@ -267,13 +313,24 @@ curl -X GET http://localhost:3000/my-database/users/<record-id> \
   -H "Authorization: Bearer <your-token>"
 ```
 
-**10. Update/Replace a specific record by ID (PUT)**
+**10. Update/Replace Record (PUT)**
+Full replacement of a record. Missing fields will be removed.
 ```bash
 curl -X PUT http://localhost:3000/my-database/users/<record-id> \
   -H "x-user-id: <your-uuid>" \
   -H "Authorization: Bearer <your-token>" \
   -H "Content-Type: application/json" \
   -d '{"name": "Alice updated", "age": 29}'
+```
+
+**11. Partial Update Record (PATCH)**
+Only update the specific fields provided in the body.
+```bash
+curl -X PATCH http://localhost:3000/my-database/users/<record-id> \
+  -H "x-user-id: <your-uuid>" \
+  -H "Authorization: Bearer <your-token>" \
+  -H "Content-Type: application/json" \
+  -d '{"age": 30}'
 ```
 
 **11. Delete a specific record by ID (DELETE)**
@@ -292,9 +349,32 @@ curl -X PATCH http://localhost:3000/auth/update-uuid \
   -H "Authorization: Bearer <your-token>"
 ```
 
-**13. Delete Account (Wipes all your data entirely)**
+**14. Delete Account (Wipes all your data entirely)**
 ```bash
 curl -X DELETE http://localhost:3000/auth/account \
   -H "x-user-id: <your-uuid>" \
   -H "Authorization: Bearer <your-token>"
 ```
+
+---
+
+## 9. Scenarios & Data Integrity
+
+### Scenario: The Schema Shield
+If you define `age` as a `Number`, the server will reject any `POST`, `PUT`, or `PATCH` that provides a string.
+
+1. **Set Schema:** `PATCH /users/schema-definition` with `{"name": "age", "type": "Number"}`
+2. **Try Invalid Update:**
+```bash
+curl -X PATCH http://localhost:3000/my-db/users/<id> \
+  -d '{"age": "twenty-eight"}'
+```
+3. **Response (400 Bad Request):**
+```json
+{
+  "error": "Validation Error: Field 'age' expects Number"
+}
+```
+
+### Scenario: High-Volume Tables
+The Test Dashboard includes a built-in horizontal scrollbar and vertical modal scrolling to handle tables with 50+ columns seamlessly.
