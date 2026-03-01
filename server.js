@@ -180,7 +180,7 @@ const Storage = {
 
     async updateSecurity(userId, security) {
         if (STORE_MODE === 'mongodb') {
-            await db.collection('users').updateOne({ userId }, { $set: { security } });
+            await db.collection('users').updateOne({ userId }, { $set: { security } }, { upsert: true });
         } else {
             await fsExtra.ensureDir(path.join(DATA_DIR, userId));
             await fs.writeFile(path.join(DATA_DIR, userId, 'security.json'), JSON.stringify(security, null, 2));

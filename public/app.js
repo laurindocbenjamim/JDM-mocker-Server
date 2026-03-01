@@ -20,6 +20,7 @@ function init() {
     if (state.userId && (state.token || state.apiKey)) {
         fetchIntrospect();
     }
+    initResizer();
 
     // Initialize Mobile UI
     const overlay = document.createElement('div');
@@ -58,6 +59,38 @@ function showView(viewId) {
     if (window.innerWidth <= 992) {
         toggleMenu(); // Close menu on navigation
     }
+}
+
+function initResizer() {
+    const resizer = document.getElementById('log-resizer');
+    const panel = document.getElementById('log-panel');
+    const main = document.querySelector('main');
+    let isDragging = false;
+
+    resizer.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        document.body.style.cursor = 'ns-resize';
+        const panelRect = panel.getBoundingClientRect();
+        panel.style.transition = 'none'; // Disable transition during drag
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+
+        const newHeight = window.innerHeight - e.clientY;
+        if (newHeight > 40 && newHeight < window.innerHeight * 0.8) {
+            panel.style.height = `${newHeight}px`;
+            main.style.paddingBottom = `${newHeight + 20}px`;
+        }
+    });
+
+    document.addEventListener('mouseup', () => {
+        if (isDragging) {
+            isDragging = false;
+            document.body.style.cursor = 'default';
+            panel.style.transition = 'left 0.3s'; // Restore partial transition
+        }
+    });
 }
 
 function toggleMenu() {
@@ -977,10 +1010,18 @@ function toggleConsole() {
     const main = document.querySelector('main');
     const toggle = document.getElementById('console-toggle');
 
-    panel.classList.toggle('minimized');
+    const isMinimized = panel.classList.toggle('minimized');
     main.classList.toggle('console-minimized');
 
-    toggle.innerText = panel.classList.contains('minimized') ? '▲' : '_';
+    if (isMinimized) {
+        toggle.innerText = '▲';
+        panel.style.height = '40px';
+        main.style.paddingBottom = '60px';
+    } else {
+        toggle.innerText = '_';
+        panel.style.height = '250px';
+        main.style.paddingBottom = '270px';
+    }
 }
 
 // Entry point
