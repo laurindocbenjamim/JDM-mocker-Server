@@ -8,7 +8,9 @@ let state = {
     role: 'N/A',
     introspection: null,
     activeContext: { container: '', table: '' },
-    editingId: null
+    editingId: null,
+    editingPk: '_id',
+    isEditingPk: false
 };
 
 // --- Initialization ---
@@ -29,8 +31,8 @@ function init() {
     mobileHeader.className = 'mobile-header';
     mobileHeader.innerHTML = `
         <div class="brand" style="margin-bottom:0">
-            <img src="/assets/logo.png" alt="JDM Mocker Logo" style="width: 24px; height: 24px;">
-            <span>JDM MOCKER</span>
+            <img src="/assets/logo.png" alt="JDM MOCK Logo" style="width: 24px; height: 24px;">
+            <span>JDM MOCK</span>
         </div>
         <button class="btn-icon" onclick="toggleMenu()" style="margin-left:auto; background:none; border:none; color:var(--primary); cursor:pointer;">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -136,6 +138,40 @@ function castValue(value, type) {
     if (type === 'Number') return Number(value);
     if (type === 'Date') return new Date(value).toISOString();
     return value;
+}
+
+// --- Security Actions ---
+async function fetchSecuritySettings() {
+    if (!state.userId) return;
+    const { status, data } = await api('/auth/security');
+    if (status === 200 && data.validation) {
+        Object.entries(data.validation).forEach(([method, enabled]) => {
+            const el = document.getElementById(`auth-val-${method}`);
+            if (el) el.checked = enabled;
+        });
+    }
+}
+
+async function updateSecuritySettings() {
+    const methods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
+    const validation = {};
+    methods.forEach(m => {
+        validation[m] = document.getElementById(`auth-val-${m}`).checked;
+    });
+
+    const statusEl = document.getElementById('security-status');
+    statusEl.classList.remove('hidden');
+
+    const { status } = await api('/auth/security', {
+        method: 'PATCH',
+        body: JSON.stringify({ validation })
+    });
+
+    setTimeout(() => {
+        statusEl.classList.add('hidden');
+        if (status === 200) showToast('Security settings updated');
+        else showToast('Failed to update security settings', true);
+    }, 500);
 }
 
 // --- Auth Actions ---
@@ -342,34 +378,17 @@ async function deleteContainer(name) {
 function viewTable(container, table) {
     state.activeContext = { container, table };
     const dataObj = state.introspection.storage[container][table];
-    const hasCustom = dataObj.customPaths && Object.keys(dataObj.customPaths).length > 0;
+    state.editingPk = dataObj.primaryKey || '_id';
 
     document.getElementById('table-title').innerText = `Table: ${table}`;
-    document.getElementById('table-subtitle').innerHTML = `
-        Container: ${container}
-        ${hasCustom ? `
-            <div style="margin-top:0.5rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
-                ${Object.entries(dataObj.customPaths).map(([m, p]) => `
-                    <span style="font-size:0.6rem; padding:2px 6px; background:rgba(59,130,246,0.1); color:var(--primary); border-radius:4px; font-weight:700;">
-                        ${m.toUpperCase()}: ${p}
-                    </span>
-                `).join('')}
-            </div>
-        ` : ''}
-    `;
-
-    // Add Schema Management Buttons to Header
-    const headerActions = document.querySelector('#view-data .card-header div:last-child');
-    headerActions.innerHTML = `
-        <button class="btn btn-secondary" onclick="showView('storage')">Back</button>
-        <button class="btn btn-secondary" onclick="openSchemaModal()">Columns</button>
-        <button class="btn btn-primary" onclick="openCreateModal()">Add Record</button>
-    `;
+    document.getElementById('table-subtitle').innerText = `Container: ${container} | PK: ${state.editingPk}`;
 
     renderTable();
     renderEndpoints(container, table);
     showView('data');
 }
+
+// Handlers removed/integrated into simplified modal logic
 
 function renderEndpoints(container, table) {
     const dataObj = state.introspection.storage[container][table];
@@ -380,32 +399,184 @@ function renderEndpoints(container, table) {
     const host = window.location.origin;
     const endpoints = [];
 
-    // Standard Endpoints
-    endpoints.push({ method: 'GET', path: `/${container}/${table}` });
-    endpoints.push({ method: 'POST', path: `/${container}/${table}` });
-    endpoints.push({ method: 'GET', path: `/${container}/${table}/:id` });
-    endpoints.push({ method: 'PATCH', path: `/${container}/${table}/:id` });
-    endpoints.push({ method: 'DELETE', path: `/${container}/${table}/:id` });
+    // Standard Endpoints (Logical fallback)
+    const defaults = {
+        get: `/${container}/${table}`,
+        post: `/${container}/${table}`,
+        get_pk: `/${container}/${table}/:${state.editingPk}`,
+        patch: `/${container}/${table}/:${state.editingPk}`,
+        delete: `/${container}/${table}/:${state.editingPk}`
+    };
 
-    // Custom Endpoints
-    Object.entries(customPaths).forEach(([method, path]) => {
-        endpoints.push({ method: method.toUpperCase(), path, isCustom: true });
-    });
+    const methods = [
+        { id: 'get', name: 'GET', default: defaults.get },
+        { id: 'post', name: 'POST', default: defaults.post },
+        { id: 'get_pk', name: 'GET (BY ID)', default: defaults.get_pk, customKey: 'get' }, // Note: we use 'get' for custom path mapping on both
+        { id: 'patch', name: 'PATCH', default: defaults.patch },
+        { id: 'delete', name: 'DELETE', default: defaults.delete }
+    ];
 
-    endpoints.forEach(ep => {
+    methods.forEach(m => {
+        const custom = customPaths[m.id === 'get_pk' ? 'get' : m.id];
+        let path = custom || m.default;
+        if (m.id === 'get_pk' && custom) path = custom + '/:' + state.editingPk;
+
         const item = document.createElement('div');
         item.className = 'endpoint-item';
-        const fullUrl = `${host}${ep.path}`;
+        const fullUrl = `${host}${path}`;
 
         item.innerHTML = `
             <div class="endpoint-info">
-                <span class="endpoint-method badge-${ep.method.toLowerCase()}">${ep.method}</span>
-                <span class="endpoint-path">${ep.path} ${ep.isCustom ? '<span style="color:var(--primary); font-size:0.6rem;">(CUSTOM)</span>' : ''}</span>
+                <span class="endpoint-method badge-${m.name.split(' ')[0].toLowerCase()}">${m.name}</span>
+                <span class="endpoint-path">${path} ${custom ? '<span style="color:var(--primary); font-size:0.6rem;">(CUSTOM)</span>' : ''}</span>
             </div>
             <button class="copy-btn" onclick="copyToClipboard('${fullUrl}')">Copy URL</button>
         `;
         list.appendChild(item);
     });
+}
+
+function openCustomEndpointsModal() {
+    const { container, table } = state.activeContext;
+    const dataObj = state.introspection.storage[container][table];
+    const customPaths = dataObj.customPaths || {};
+
+    const modal = document.getElementById('modal-container');
+    const fields = document.getElementById('modal-fields');
+    document.getElementById('modal-title').innerText = `Endpoints: ${table}`;
+    fields.scrollTop = 0;
+
+    const defaults = {
+        get: `/${container}/${table}`,
+        post: `/${container}/${table}`,
+        patch: `/${container}/${table}/:${state.editingPk}`,
+        put: `/${container}/${table}/:${state.editingPk}`,
+        delete: `/${container}/${table}/:${state.editingPk}`
+    };
+
+    fields.innerHTML = `
+        <div id="custom-path-error" class="error-msg hidden"></div>
+        
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1rem;">
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin:0">Edit or override standard API endpoints.</p>
+            <button class="btn btn-primary" style="padding: 4px 12px; font-size: 0.75rem;" onclick="showAddEndpointRow()">+ ADD</button>
+        </div>
+
+        <div class="column-list" id="endpoints-mgmt-list">
+            ${['GET', 'POST', 'PATCH', 'PUT', 'DELETE'].map(method => {
+        const m = method.toLowerCase();
+        const path = customPaths[m] || defaults[m];
+        const isCustom = !!customPaths[m];
+
+        return `
+                    <div class="column-item" style="padding: 0.75rem; border-left: 3px solid ${isCustom ? 'var(--primary)' : 'transparent'};">
+                        <div style="display:flex; align-items:center; gap:0.5rem; flex:1">
+                            <span class="badge badge-${m}" style="width:60px; text-align:center">${method}</span>
+                            <input type="text" class="endpoint-edit-input" data-method="${m}" value="${path}" 
+                                style="flex:1; height:32px; font-size:0.85rem; background:${isCustom ? 'rgba(59,130,246,0.05)' : 'transparent'}; border:${isCustom ? '1px solid var(--primary)' : '1px solid var(--border)'};">
+                        </div>
+                        ${isCustom ? `
+                            <button class="btn btn-secondary" onclick="deleteCustomPath('${m}')" style="margin-left:0.5rem; padding: 4px 8px; font-size: 0.7rem;">Reset</button>
+                        ` : ''}
+                    </div>
+                `;
+    }).join('')}
+        </div>
+
+        <div id="add-endpoint-row" class="hidden" style="margin-top:1rem; padding:1rem; border:1px dashed var(--primary); border-radius:8px; background:rgba(59,130,246,0.05)">
+            <div style="display:flex; gap:0.5rem; align-items:center">
+                <select id="new-ep-method" style="flex:0.3; height:32px; font-size:0.8rem">
+                    <option value="get">GET</option>
+                    <option value="post">POST</option>
+                    <option value="patch">PATCH</option>
+                    <option value="put">PUT</option>
+                    <option value="delete">DELETE</option>
+                </select>
+                <input type="text" id="new-ep-path" placeholder="/api/v1/custom" style="flex:1; height:32px; font-size:0.8rem">
+                <button class="btn btn-primary" style="padding:4px 8px; font-size:0.75rem" onclick="addNewEndpoint()">Add</button>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('modal-confirm').style.display = 'inline-flex';
+    document.getElementById('modal-confirm').innerText = 'Save Endpoints';
+    document.getElementById('modal-confirm').onclick = saveAllCustomPaths;
+    modal.classList.remove('hidden');
+}
+
+function showAddEndpointRow() {
+    document.getElementById('add-endpoint-row').classList.remove('hidden');
+}
+
+async function addNewEndpoint() {
+    const method = document.getElementById('new-ep-method').value;
+    const path = document.getElementById('new-ep-path').value.trim();
+    if (!path) return;
+
+    // Add to the list statically so it can be saved with saveAllCustomPaths
+    const container = document.getElementById('endpoints-mgmt-list');
+    const existing = container.querySelector(`[data-method="${method}"]`);
+    if (existing) {
+        existing.value = path;
+        existing.style.background = 'rgba(59,130,246,0.05)';
+        existing.style.border = '1px solid var(--primary)';
+    }
+    document.getElementById('new-ep-path').value = '';
+    document.getElementById('add-endpoint-row').classList.add('hidden');
+}
+
+async function saveAllCustomPaths() {
+    const { container, table } = state.activeContext;
+    const defaults = {
+        get: `/${container}/${table}`,
+        post: `/${container}/${table}`,
+        patch: `/${container}/${table}/:${state.editingPk}`,
+        put: `/${container}/${table}/:${state.editingPk}`,
+        delete: `/${container}/${table}/:${state.editingPk}`
+    };
+
+    const customPaths = {};
+    document.querySelectorAll('.endpoint-edit-input').forEach(input => {
+        const m = input.dataset.method;
+        const val = input.value.trim();
+        // Only save if it differs from default
+        if (val && val !== defaults[m]) {
+            customPaths[m] = val.startsWith('/') ? val : '/' + val;
+        }
+    });
+
+    const { status, data } = await api(`/${container}/${table}/custom-paths`, {
+        method: 'PATCH',
+        body: JSON.stringify({ customPaths })
+    });
+
+    if (status === 200) {
+        showToast('Endpoints saved');
+        await fetchIntrospect();
+        renderEndpoints(container, table);
+        closeModal();
+    } else {
+        const errorEl = document.getElementById('custom-path-error');
+        errorEl.innerText = data.error || 'Failed to update custom paths';
+        errorEl.classList.remove('hidden');
+    }
+}
+
+async function deleteCustomPath(method) {
+    const { container, table } = state.activeContext;
+    if (!confirm(`Remove custom path for ${method}?`)) return;
+
+    const { status } = await api(`/${container}/${table}/custom-paths`, {
+        method: 'PATCH',
+        body: JSON.stringify({ remove: method })
+    });
+
+    if (status === 200) {
+        showToast(`${method} path removed`);
+        await fetchIntrospect();
+        renderEndpoints(container, table);
+        openCustomEndpointsModal(); // Refresh
+    }
 }
 
 async function openSchemaModal() {
@@ -420,50 +591,86 @@ async function openSchemaModal() {
 
     fields.innerHTML = `
         <div id="schema-error" class="error-msg hidden"></div>
-        <div style="margin-bottom: 1.5rem;">
-            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">Current Schema & Types:</p>
-            <div class="column-list">
-                ${Object.entries(dataObj.schema || {}).map(([col, type]) => `
-                    <div class="column-item">
-                        <div class="column-info">
-                            <span class="column-name">${col}</span>
-                            <span class="column-type">${type}</span>
-                        </div>
-                        ${col !== 'id' ? `
-                            <button class="btn-delete-icon" onclick="deleteColumn('${col}')" title="Delete Column">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                                    <path d="M3 6h18m-2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                </svg>
-                            </button>
-                        ` : '<span style="font-size:0.7rem; color:var(--text-muted)">System</span>'}
-                    </div>
-                `).join('')}
-                ${(!dataObj.schema || Object.keys(dataObj.schema).length === 0) && schema.length > 0 ? `
-                    <p style="font-size: 0.7rem; color: var(--text-muted); margin: 0.5rem 0;">Preview from data (untyped):</p>
-                    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
-                        ${schema.map(col => `<span class="badge badge-secondary" style="opacity:0.6">${col}</span>`).join('')}
-                    </div>
-                ` : ''}
-            </div>
-        </div>
-        <hr style="margin: 1rem 0; border: none; border-top: 1px solid var(--border);">
-        <div class="form-group">
-            <label>Add New Column</label>
+        
+        <div class="form-group" style="background: rgba(59,130,246,0.05); padding: 1rem; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 1.5rem;">
+            <label style="font-weight: 700; color: var(--primary); margin-bottom: 0.75rem; display: block;">Add New Column</label>
             <div style="display:flex; gap:0.5rem">
-                <input type="text" id="new-column-name" placeholder="Column Name" style="flex:2">
-                <select id="new-column-type" style="flex:1">
+                <input type="text" id="new-column-name" placeholder="Column Name" style="flex:2; height: 38px;">
+                <select id="new-column-type" style="flex:1; height: 38px;">
                     <option value="String">String</option>
                     <option value="Number">Number</option>
                     <option value="Boolean">Boolean</option>
                     <option value="Date">Date</option>
                 </select>
-                <button class="btn btn-secondary" onclick="addColumn()">Add</button>
+                <button class="btn btn-primary" onclick="addColumn()" style="height: 38px; padding: 0 1.5rem;">Add</button>
+            </div>
+        </div>
+
+        <div style="margin-bottom: 1.5rem;">
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem; font-weight:600">Current Schema & Primary Key:</p>
+            <div class="column-list">
+                ${Object.entries(dataObj.schema || {}).map(([col, type]) => {
+        const isPk = col === state.editingPk;
+        return `
+                        <div class="column-item" style="border-left: 3px solid ${isPk ? 'var(--primary)' : 'transparent'}">
+                            <div class="column-info">
+                                <span class="column-name">${col} ${isPk ? '<span class="badge badge-get" style="font-size:0.5rem; margin-left:4px">PK</span>' : ''}</span>
+                                <span class="column-type">${type}</span>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:0.4rem">
+                                <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.75rem; color:var(--text-muted); padding: 4px 12px; border-radius:4px; border: 1px solid ${isPk ? 'var(--primary)' : 'var(--border)'}; ${isPk ? 'background:rgba(59,130,246,0.1); color:var(--primary)' : ''}">
+                                    <input type="checkbox" ${isPk ? 'disabled checked' : ''} onchange="if(this.checked) setAsPrimaryKey('${col}')" style="cursor:pointer; width:16px; height:16px;">
+                                    PK
+                                </label>
+                                ${col !== '_id' ? `
+                                    <button class="btn-delete-icon" onclick="deleteColumn('${col}')" title="Delete Column">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                            <path d="M3 6h18m-2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                        </svg>
+                                    </button>
+                                ` : '<span style="font-size:0.7rem; color:var(--text-muted); align-self:center">System</span>'}
+                            </div>
+                        </div>
+                    `;
+    }).join('')}
+                ${(!dataObj.schema || Object.keys(dataObj.schema).length === 0) && schema.length > 0 ? `
+                    <p style="font-size: 0.7rem; color: var(--text-muted); margin: 1rem 0 0.5rem 0;">Preview from data (untyped):</p>
+                    <div style="display: grid; grid-template-columns: 1fr; gap:0.5rem;">
+                        ${schema.map(col => `
+                             <div class="column-item" style="padding: 0.5rem;">
+                                <span style="font-size:0.85rem; font-weight:500">${col}</span>
+                                <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.75rem; color:var(--text-muted); padding: 2px 10px; border-radius:4px; border: 1px solid var(--border);">
+                                    <input type="checkbox" onchange="if(this.checked) setAsPrimaryKey('${col}')" style="cursor:pointer">
+                                    Set as PK
+                                </label>
+                             </div>
+                        `).join('')}
+                    </div>
+                ` : ''}
             </div>
         </div>
     `;
 
-    document.getElementById('modal-confirm').style.display = 'none'; // Use inline buttons
+    document.getElementById('modal-confirm').style.display = 'inline-flex';
+    document.getElementById('modal-confirm').innerText = 'Done';
+    document.getElementById('modal-confirm').onclick = closeModal;
     modal.classList.remove('hidden');
+}
+
+async function setAsPrimaryKey(pk) {
+    const { container, table } = state.activeContext;
+    const { status } = await api(`/${container}/${table}/primary-key`, {
+        method: 'PATCH',
+        body: JSON.stringify({ primaryKey: pk })
+    });
+
+    if (status === 200) {
+        showToast(`Primary key set to ${pk}`);
+        await fetchIntrospect();
+        state.editingPk = pk;
+        viewTable(container, table); // Refresh view
+        openSchemaModal(); // Refresh modal
+    }
 }
 
 async function addColumn() {
@@ -531,7 +738,7 @@ function renderTable() {
 
     // Combine formal schema keys with keys found in records
     const schemaKeys = Array.from(new Set([
-        'id',
+        state.editingPk,
         ...(dataObj.schema ? Object.keys(dataObj.schema) : []),
         ...(dataObj.schema_preview || [])
     ]));
@@ -561,20 +768,21 @@ function renderTable() {
 
     // Body
     records.forEach(row => {
-        const isEditing = state.editingId === row.id;
+        const rowPkValue = row[state.editingPk];
+        const isEditing = state.editingId === rowPkValue;
         const tr = document.createElement('tr');
         if (isEditing) tr.className = 'editing-row';
 
         schemaKeys.forEach(k => {
             const td = document.createElement('td');
-            if (isEditing && k !== 'id') {
+            if (isEditing && k !== state.editingPk) {
                 const type = (dataObj.schema || {})[k] || 'String';
                 td.innerHTML = `<input type="text" class="inline-edit-input" data-edit-field="${k}" data-edit-type="${type}" value="${row[k] !== undefined ? row[k] : ''}">`;
             } else {
                 td.innerText = row[k] !== undefined ? row[k] : '-';
                 if (!isEditing) {
                     td.style.cursor = 'pointer';
-                    td.onclick = () => startEditing(row.id);
+                    td.onclick = () => startEditing(rowPkValue);
                 }
             }
             tr.appendChild(td);
@@ -584,13 +792,13 @@ function renderTable() {
         if (isEditing) {
             td.innerHTML = `
                 <div style="display:flex; gap:0.4rem">
-                    <button class="btn btn-primary" style="padding:4px 8px; font-size:0.7rem" onclick="saveRecord('${row.id}')">Save</button>
+                    <button class="btn btn-primary" style="padding:4px 8px; font-size:0.7rem" onclick="saveRecord('${rowPkValue}')">Save</button>
                     <button class="btn btn-secondary" style="padding:4px 8px; font-size:0.7rem" onclick="cancelEditing()">Cancel</button>
                 </div>
             `;
         } else {
             td.innerHTML = `
-                <button class="btn btn-secondary" style="padding:4px 8px" onclick="deleteRecord('${row.id}')">Delete</button>
+                <button class="btn btn-secondary" style="padding:4px 8px" onclick="deleteRecord('${rowPkValue}')">Delete</button>
             `;
         }
         tr.appendChild(td);
@@ -614,7 +822,7 @@ function openCreateModal() {
     const schemaKeys = Array.from(new Set([
         ...(dataObj.schema ? Object.keys(dataObj.schema) : []),
         ...(dataObj.schema_preview || [])
-    ])).filter(k => k !== 'id' && k !== '_init');
+    ])).filter(k => k !== state.editingPk && k !== '_init');
 
     if (schemaKeys.length === 0) {
         fields.innerHTML = `<p style="color:var(--text-muted); font-size:0.8rem">No columns defined yet. Add some in 'Manage Columns' or just add 'name' and 'value' fields below.</p>`;
@@ -638,7 +846,10 @@ function openCreateModal() {
         });
     }
 
-    document.getElementById('modal-confirm').onclick = handleCreateRecord;
+    const confirmBtn = document.getElementById('modal-confirm');
+    confirmBtn.style.display = 'inline-flex';
+    confirmBtn.innerText = 'Save Record';
+    confirmBtn.onclick = handleCreateRecord;
     modal.classList.remove('hidden');
 }
 
@@ -718,9 +929,13 @@ function updateIdentityUI() {
     document.getElementById('display-role').innerText = state.role || 'N/A';
 
     // Sync config inputs
-    document.getElementById('cfg-user-id').value = state.userId;
-    document.getElementById('cfg-api-key').value = state.apiKey;
-    document.getElementById('cfg-token').value = state.token;
+    document.getElementById('cfg-user-id').value = state.userId || '';
+    document.getElementById('cfg-api-key').value = state.apiKey || '';
+    document.getElementById('cfg-token').value = state.token || '';
+
+    if (state.userId) {
+        fetchSecuritySettings();
+    }
 }
 
 // --- Logging ---

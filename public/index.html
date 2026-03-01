@@ -18,9 +18,8 @@
     <aside id="sidebar">
         <div class="brand-container">
             <div class="brand">
-                <img src="/assets/logo.png" alt="JDM Mocker Logo"
-                    style="width: 28px; height: 28px; object-fit: contain;">
-                <span>JDM MOCKER</span>
+                <img src="/assets/logo.png" alt="JDM MOCK Logo" style="width: 28px; height: 28px; object-fit: contain;">
+                <span>JDM MOCK</span>
             </div>
             <button id="menu-toggle" class="btn-icon" onclick="toggleMenu()">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -101,7 +100,38 @@
             </div>
 
             <section class="card" style="margin-top: 2rem;">
-                <h2>Direct API Access (Configuration)</h2>
+                <h2>Security Configuration</h2>
+                <p style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 1.5rem;">
+                    Toggle which HTTP methods require an <code>Authorization</code> token.
+                    If disabled, only <code>x-user-id</code> is required for context.
+                </p>
+                <div id="security-settings" style="display: flex; flex-wrap: wrap; gap: 1.5rem;">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" id="auth-val-GET" checked onchange="updateSecuritySettings()">
+                        <span class="badge badge-get" style="width: 60px; text-align: center;">GET</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" id="auth-val-POST" checked onchange="updateSecuritySettings()">
+                        <span class="badge badge-post" style="width: 60px; text-align: center;">POST</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" id="auth-val-PUT" checked onchange="updateSecuritySettings()">
+                        <span class="badge badge-put" style="width: 60px; text-align: center;">PUT</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" id="auth-val-PATCH" checked onchange="updateSecuritySettings()">
+                        <span class="badge badge-patch" style="width: 60px; text-align: center;">PATCH</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" id="auth-val-DELETE" checked onchange="updateSecuritySettings()">
+                        <span class="badge badge-delete" style="width: 60px; text-align: center;">DELETE</span>
+                    </label>
+                </div>
+                <p id="security-status" style="font-size: 0.75rem; color: var(--primary); margin-top: 1rem;"
+                    class="hidden">Updating settings...</p>
+            </section>
+
+            <section class="card" style="margin-top: 2rem;">
                 <div class="form-group">
                     <label>Force User ID Header (x-user-id)</label>
                     <input type="text" id="cfg-user-id" placeholder="Paste UUID here...">
@@ -160,8 +190,10 @@
                     <h2 id="table-title">Table: users</h2>
                     <p id="table-subtitle" style="font-size: 0.8rem; color: var(--text-muted);">Container: local-db</p>
                 </div>
-                <div style="display: flex; gap: 0.5rem;">
+                <div style="display: flex; gap: 0.5rem;" id="table-header-actions">
                     <button class="btn btn-secondary" onclick="showView('storage')">Back</button>
+                    <button class="btn btn-secondary" onclick="openSchemaModal()">Columns</button>
+                    <button class="btn btn-secondary" onclick="openCustomEndpointsModal()">Endpoints</button>
                     <button class="btn btn-primary" onclick="openCreateModal()">Add Record</button>
                 </div>
             </div>

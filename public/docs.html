@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JDM Mocker - Documentation</title>
+    <title>JDM MOCK - Documentation</title>
     <link rel="stylesheet" href="style.css">
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap"
@@ -232,16 +232,15 @@
     <div class="docs-container">
         <header style="margin-bottom: 3rem; display: flex; align-items: center; justify-content: space-between;">
             <div class="brand">
-                <img src="/assets/logo.png" alt="JDM Mocker Logo"
-                    style="width: 32px; height: 32px; object-fit: contain;">
-                <span>JDM MOCKER</span>
+                <img src="/assets/logo.png" alt="JDM MOCK Logo" style="width: 32px; height: 32px; object-fit: contain;">
+                <span>JDM MOCK</span>
             </div>
             <a href="index.html" class="btn btn-secondary">Back to Client</a>
         </header>
 
         <div class="docs-section">
             <h1>Quick Start Guide</h1>
-            <p>JDM Mocker is a powerful tool to create mock servers and test APIs quickly. This guide will help you
+            <p>JDM MOCK is a powerful tool to create mock servers and test APIs quickly. This guide will help you
                 understand how to use the developer console and implement the mock server in your workflow.</p>
         </div>
 
@@ -406,7 +405,7 @@ curl -X DELETE http://localhost:5000/containers/my_db</pre>
 
             <div class="docs-subsection">
                 <h3>Schema Validation</h3>
-                <p>JDM Mocker supports typed validation. Use <code>_schema</code> to enforce types (String, Number,
+                <p>JDM MOCK supports typed validation. Use <code>_schema</code> to enforce types (String, Number,
                     Boolean, Date).</p>
                 <div class="tab-container" data-group="schema-ops">
                     <div class="tabs">
@@ -441,12 +440,13 @@ requests.post('http://localhost:5000/db/users', json=payload)</pre>
 
         <div class="docs-section">
             <h2>6. JWT: Header vs. Cookie Requests</h2>
-            <p>JDM Mocker supports both traditional header-based and modern HttpOnly cookie-based authentication.</p>
+            <p>JDM MOCK supports both traditional header-based and modern HttpOnly cookie-based authentication.</p>
 
             <div class="docs-subsection">
                 <h3>Header-based (Traditional API)</h3>
                 <p>Send the token manually in the <code>Authorization</code>, <code>CSRF-Token</code>, or
-                    <code>x-csrf-token</code> header.</p>
+                    <code>x-csrf-token</code> header.
+                </p>
                 <div class="tab-container" data-group="jwt-header">
                     <div class="tabs">
                         <button class="tab-btn active"
@@ -483,7 +483,7 @@ requests.get('http://localhost:5000/my_db/data', headers=headers)</pre>
             <div class="docs-subsection">
                 <h3>Cookie-based (HttpOnly)</h3>
                 <p>The server automatically sets an <code>auth_token</code> cookie upon login. Modern browsers will
-                    include this cookie in every subsequent request to JDM Mocker.</p>
+                    include this cookie in every subsequent request to JDM MOCK.</p>
                 <div class="code-container">
                     <div class="code-header"><span>JavaScript (Auto-handled)</span></div>
                     <pre class="code-block">// Simply login once, and your browser handles the rest!
@@ -497,7 +497,7 @@ fetch('http://localhost:5000/auth/login', { ... }).then(() => {
 
         <div class="docs-section">
             <h2>6. Frontend Integration</h2>
-            <p>To integrate JDM Mocker into your application, use the endpoints created for each table. Below are
+            <p>To integrate JDM MOCK into your application, use the endpoints created for each table. Below are
                 detailed examples for all CRUD operations.</p>
 
             <!-- Example 1: GET (List/Select) -->
@@ -585,8 +585,8 @@ print(response.json())</pre>
 
             <!-- Example 3: PATCH (Update) -->
             <div class="docs-subsection">
-                <h3>3. Update Record (PATCH / PUT)</h3>
-                <p>Update specific fields of an existing record by ID.</p>
+                <h3>3. Update Record (PATCH)</h3>
+                <p>Update specific fields of an existing record by ID or using a custom path.</p>
                 <div class="tab-container" data-group="patch-update">
                     <div class="tabs">
                         <button class="tab-btn active"
@@ -598,11 +598,19 @@ print(response.json())</pre>
                         <div class="code-container">
                             <div class="code-header"><span>JavaScript</span><button class="copy-btn-mini"
                                     onclick="copyCode(this)">Copy</button></div>
-                            <pre class="code-block">fetch('http://localhost:5000/my_container/users/RECORD_ID', {
+                            <pre class="code-block">// Standard Path
+fetch('http://localhost:5000/my_container/users/RECORD_ID', {
   method: 'PATCH',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ name: 'Jane Updated' })
-}).then(res => res.json()).then(console.log);</pre>
+}).then(res => res.json()).then(console.log);
+
+// Custom Path (e.g. /api/v1/update-user)
+fetch('http://localhost:5000/api/v1/update-user/RECORD_ID', {
+  method: 'PATCH',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ status: 'active' })
+});</pre>
                         </div>
                     </div>
                     <div id="py-patch" class="tab-content">
@@ -610,20 +618,33 @@ print(response.json())</pre>
                             <div class="code-header"><span>Python</span><button class="copy-btn-mini"
                                     onclick="copyCode(this)">Copy</button></div>
                             <pre class="code-block">import requests
-response = requests.patch(
+
+# Standard Path
+requests.patch(
     'http://localhost:5000/my_container/users/RECORD_ID',
     json={'name': 'Jane Updated'}
 )
-print(response.json())</pre>
+
+# Custom Path
+requests.patch(
+    'http://localhost:5000/api/v1/update-user/RECORD_ID',
+    json={'status': 'active'}
+)</pre>
                         </div>
                     </div>
                     <div id="curl-patch" class="tab-content">
                         <div class="code-container">
                             <div class="code-header"><span>cURL</span><button class="copy-btn-mini"
                                     onclick="copyCode(this)">Copy</button></div>
-                            <pre class="code-block">curl -X PATCH http://localhost:5000/my_container/users/RECORD_ID \
+                            <pre class="code-block"># Standard Path
+curl -X PATCH http://localhost:5000/my_container/users/RECORD_ID \
      -H "Content-Type: application/json" \
-     -d '{"name": "Jane Updated"}'</pre>
+     -d '{"name": "Jane Updated"}'
+
+# Custom Path
+curl -X PATCH http://localhost:5000/api/v1/update-user/RECORD_ID \
+     -H "Content-Type: application/json" \
+     -d '{"status": "active"}'</pre>
                         </div>
                     </div>
                 </div>
@@ -632,7 +653,7 @@ print(response.json())</pre>
             <!-- Example 4: DELETE -->
             <div class="docs-subsection">
                 <h3>4. Delete Record (DELETE)</h3>
-                <p>Permanently remove a record from the table.</p>
+                <p>Permanently remove a record from the table by ID or using a custom path.</p>
                 <div class="tab-container" data-group="delete-op">
                     <div class="tabs">
                         <button class="tab-btn active"
@@ -644,9 +665,15 @@ print(response.json())</pre>
                         <div class="code-container">
                             <div class="code-header"><span>JavaScript</span><button class="copy-btn-mini"
                                     onclick="copyCode(this)">Copy</button></div>
-                            <pre class="code-block">fetch('http://localhost:5000/my_container/users/RECORD_ID', {
+                            <pre class="code-block">// Standard Path
+fetch('http://localhost:5000/my_container/users/RECORD_ID', {
   method: 'DELETE'
-}).then(res => console.log('Deleted'));</pre>
+}).then(res => console.log('Deleted'));
+
+// Custom Path (e.g. /api/v1/delete-user)
+fetch('http://localhost:5000/api/v1/delete-user/RECORD_ID', {
+  method: 'DELETE'
+});</pre>
                         </div>
                     </div>
                     <div id="py-delete" class="tab-content">
@@ -654,15 +681,23 @@ print(response.json())</pre>
                             <div class="code-header"><span>Python</span><button class="copy-btn-mini"
                                     onclick="copyCode(this)">Copy</button></div>
                             <pre class="code-block">import requests
-requests.delete('http://localhost:5000/my_container/users/RECORD_ID')</pre>
+
+# Standard Path
+requests.delete('http://localhost:5000/my_container/users/RECORD_ID')
+
+# Custom Path
+requests.delete('http://localhost:5000/api/v1/delete-user/RECORD_ID')</pre>
                         </div>
                     </div>
                     <div id="curl-delete" class="tab-content">
                         <div class="code-container">
                             <div class="code-header"><span>cURL</span><button class="copy-btn-mini"
                                     onclick="copyCode(this)">Copy</button></div>
-                            <pre
-                                class="code-block">curl -X DELETE http://localhost:5000/my_container/users/RECORD_ID</pre>
+                            <pre class="code-block"># Standard Path
+curl -X DELETE http://localhost:5000/my_container/users/RECORD_ID
+
+# Custom Path
+curl -X DELETE http://localhost:5000/api/v1/delete-user/RECORD_ID</pre>
                         </div>
                     </div>
                 </div>
