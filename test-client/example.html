@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Management Console</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border: 1px solid #e2e8f0;
+        }
+
+        pre {
+            font-size: 0.8rem;
+            scrollbar-width: thin;
+        }
+    </style>
+</head>
+
+<body class="p-4 md:p-8">
+    <div class="max-w-6xl mx-auto">
+        <header class="mb-8 border-b pb-6 flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-bold text-slate-800">API Console</h1>
+                <p class="text-slate-500">Manage Container: <span class="font-mono text-indigo-600">mock_test</span> |
+                    Table: <span class="font-mono text-indigo-600">contacts_test</span></p>
+            </div>
+            <div id="statusIndicator"
+                class="px-4 py-2 rounded-full bg-slate-200 text-xs font-bold uppercase tracking-wider">Idle</div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+            <div class="space-y-6">
+                <section class="glass-card p-6 rounded-xl shadow-sm">
+                    <h2 class="text-lg font-semibold mb-4 text-slate-700 flex items-center">
+                        <span class="mr-2">🛠️</span> Initialization
+                    </h2>
+                    <div class="space-y-3">
+                        <button onclick="initTable()"
+                            class="w-full bg-slate-800 hover:bg-black text-white py-2 rounded text-sm transition">1.
+                            Init Table & Schema</button>
+                        <button onclick="setPrimaryKey()"
+                            class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded text-sm transition border border-slate-300">2.
+                            Set Primary Key (id_c)</button>
+                        <button onclick="setCustomEndpoints()"
+                            class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded text-sm transition border border-slate-300">3.
+                            Register Custom Path</button>
+                    </div>
+                </section>
+
+                <section class="glass-card p-6 rounded-xl shadow-sm">
+                    <h2 class="text-lg font-semibold mb-4 text-slate-700 flex items-center">
+                        <span class="mr-2">🔍</span> Query Tests
+                    </h2>
+                    <div class="space-y-3">
+                        <button onclick="getAllRecords()"
+                            class="w-full bg-blue-50 text-blue-700 hover:bg-blue-100 py-2 rounded text-sm font-medium border border-blue-200">Get
+                            All Records</button>
+                        <button onclick="getCustomPath()"
+                            class="w-full bg-blue-50 text-blue-700 hover:bg-blue-100 py-2 rounded text-sm font-medium border border-blue-200 text-xs">Test
+                            Custom Endpoint (v1)</button>
+                        <button onclick="getNoAuth()"
+                            class="w-full bg-orange-50 text-orange-700 hover:bg-orange-100 py-2 rounded text-sm font-medium border border-orange-200">Test
+                            No-Token GET</button>
+                    </div>
+                </section>
+            </div>
+
+            <div class="space-y-6">
+                <section class="glass-card p-6 rounded-xl shadow-sm border-t-4 border-t-indigo-500">
+                    <h2 class="text-lg font-semibold mb-4 text-slate-700">Record Operations</h2>
+                    <form id="recordForm" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">ID (Primary
+                                Key)</label>
+                            <input type="text" id="recordId" value="TEST-001"
+                                class="w-full p-2 border rounded bg-white focus:ring-2 focus:ring-indigo-400 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Full Name</label>
+                            <input type="text" id="fullName" value="Test User"
+                                class="w-full p-2 border rounded bg-white focus:ring-2 focus:ring-indigo-400 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Phone /
+                                Category</label>
+                            <div class="flex gap-2">
+                                <input type="text" id="phone" value="123456"
+                                    class="w-1/2 p-2 border rounded bg-white outline-none">
+                                <input type="text" id="category" value="tester"
+                                    class="w-1/2 p-2 border rounded bg-white outline-none">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2 pt-2">
+                            <button type="button" onclick="createRecord()"
+                                class="bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded transition">Create</button>
+                            <button type="button" onclick="updateRecord()"
+                                class="bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded transition">Update
+                                Name</button>
+                            <button type="button" onclick="getOneRecord()"
+                                class="bg-slate-200 hover:bg-slate-300 text-slate-800 py-2 rounded transition">Fetch By
+                                ID</button>
+                            <button type="button" onclick="deleteRecord()"
+                                class="bg-red-50 text-red-600 hover:bg-red-600 hover:text-white border border-red-200 py-2 rounded transition">Delete</button>
+                        </div>
+                    </form>
+                </section>
+
+                <section class="glass-card p-6 rounded-xl shadow-sm">
+                    <h2 class="text-lg font-semibold mb-4 text-slate-700">Filter Testing</h2>
+                    <div class="space-y-2">
+                        <button onclick="filterRecords('id_c=TEST-001&phone=123456')"
+                            class="w-full text-left px-3 py-2 text-xs bg-slate-50 hover:bg-slate-100 border rounded">Filter:
+                            ID & Phone</button>
+                        <button onclick="filterRecords('full_name=Updated%20Test%20User')"
+                            class="w-full text-left px-3 py-2 text-xs bg-slate-50 hover:bg-slate-100 border rounded">Filter:
+                            Encoded Name</button>
+                    </div>
+                </section>
+            </div>
+
+            <div class="lg:col-span-1">
+                <div class="bg-slate-900 rounded-xl shadow-xl h-full flex flex-col overflow-hidden">
+                    <div class="px-4 py-3 bg-slate-800 flex justify-between items-center border-b border-slate-700">
+                        <span class="text-slate-400 text-xs font-mono uppercase">Output Console</span>
+                        <button onclick="document.getElementById('console').innerText = 'Ready...'"
+                            class="text-slate-500 hover:text-white text-xs">Clear</button>
+                    </div>
+                    <pre id="console" class="p-4 text-green-400 overflow-auto flex-grow h-[500px]">Ready...</pre>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const BASE_URL = "http://localhost:3000";
+        const CONTAINER = "mock_test";
+        const TABLE = "mockito";
+        const USER_ID = "449d1266-2d37-4828-80f4-205edddf3c7d";
+        const TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI0NDlkMTI2Ni0yZDM3LTQ4MjgtODBmNC0yMDVlZGRkZjNjN2QiLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NzI0MDY1NzEsImV4cCI6MTc3MjQxMDE3MX0.FplywvD85vnsdKEiXouUE4PYHsGnzd-2xPd5BjcQu2k";
+
+        const log = (msg, data = null) => {
+            const consoleEl = document.getElementById('console');
+            const timestamp = new Date().toLocaleTimeString();
+            let text = `\n[${timestamp}] ${msg}`;
+            if (data) text += `\n${JSON.stringify(data, null, 2)}`;
+            consoleEl.innerText = text + "\n" + consoleEl.innerText;
+
+            const status = document.getElementById('statusIndicator');
+            status.innerText = "Response Received";
+            status.className = "px-4 py-2 rounded-full bg-green-100 text-green-700 text-xs font-bold uppercase tracking-wider";
+            setTimeout(() => {
+                status.innerText = "Idle";
+                status.className = "px-4 py-2 rounded-full bg-slate-200 text-slate-500 text-xs font-bold uppercase tracking-wider";
+            }, 2000);
+        };
+
+        const getHeaders = (withToken = true) => {
+            const h = { "x-user-id": USER_ID, "Content-Type": "application/json" };
+            if (withToken) h["Authorization"] = `Bearer ${TOKEN}`;
+            return h;
+        };
+
+        // API Mappings
+        async function apiCall(path, method = 'GET', body = null, withToken = true) {
+            try {
+                const options = { method, headers: getHeaders(withToken) };
+                if (body) options.body = JSON.stringify(body);
+
+                const response = await fetch(`${BASE_URL}${path}`, options);
+                const data = await response.json();
+                log(`${method} ${path}`, data);
+            } catch (err) {
+                log(`ERROR: ${method} ${path}`, err.message);
+            }
+        }
+
+        // Action Handlers
+        const initTable = () => apiCall(`/${CONTAINER}/${TABLE}`, 'POST', {
+            "_init": true,
+            "_schema": { "id_c": "String", "full_name": "String", "phone": "String", "category": "String" }
+        });
+
+        const setPrimaryKey = () => apiCall(`/${CONTAINER}/${TABLE}/primary-key`, 'PATCH', { "primaryKey": "id_c" });
+
+        const setCustomEndpoints = () => apiCall(`/${CONTAINER}/${TABLE}/custom-paths`, 'PATCH', {
+            "method": "get", "path": "/api/v1/all-contacts"
+        });
+
+        const createRecord = () => {
+            const body = {
+                id_c: document.getElementById('recordId').value,
+                full_name: document.getElementById('fullName').value,
+                phone: document.getElementById('phone').value,
+                category: document.getElementById('category').value
+            };
+            apiCall(`/${CONTAINER}/${TABLE}`, 'POST', body);
+        };
+
+        const updateRecord = () => {
+            const id = document.getElementById('recordId').value;
+            const body = { full_name: document.getElementById('fullName').value };
+            apiCall(`/${CONTAINER}/${TABLE}/${id}`, 'PATCH', body);
+        };
+
+        const getOneRecord = () => apiCall(`/${CONTAINER}/${TABLE}/${document.getElementById('recordId').value}`);
+
+        const deleteRecord = () => apiCall(`/${CONTAINER}/${TABLE}/${document.getElementById('recordId').value}`, 'DELETE');
+
+        const getAllRecords = () => apiCall(`/${CONTAINER}/${TABLE}`);
+
+        const getCustomPath = () => apiCall(`/api/v1/all-contacts`);
+
+        const getNoAuth = () => apiCall(`/${CONTAINER}/${TABLE}/${document.getElementById('recordId').value}`, 'GET', null, false);
+
+        const filterRecords = (queryString) => apiCall(`/${CONTAINER}/${TABLE}?${queryString}`);
+
+    </script>
+</body>
+
+</html>
