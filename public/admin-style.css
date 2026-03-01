@@ -380,3 +380,107 @@ th.sorted-asc, th.sorted-desc {
 th.sorted-asc .sort-icon, th.sorted-desc .sort-icon {
     opacity: 1;
 }
+
+/* Activity Logs Styles */
+.log-entry {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.log-time {
+    color: var(--admin-muted);
+    font-size: 0.75rem;
+}
+
+.log-level {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.log-level-info { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+.log-level-warn { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+.log-level-error { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+
+.log-msg {
+    color: var(--admin-text);
+    flex: 1;
+    min-width: 200px;
+}
+
+.log-source {
+    color: var(--admin-muted);
+    font-size: 0.7rem;
+    opacity: 0.6;
+}
+
+.log-meta {
+    width: 100%;
+    font-size: 0.7rem;
+    color: var(--admin-muted);
+    padding-left: 1rem;
+    opacity: 0.8;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+/* Log Table Specifics */
+#logs-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+#logs-table th, #logs-table td {
+    padding: 12px 16px;
+    text-align: left;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+#logs-table tr:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+#logs-table th.sortable {
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    padding-right: 25px;
+}
+
+#logs-table th.sortable::after {
+    content: '↕';
+    position: absolute;
+    right: 8px;
+    opacity: 0.3;
+}
+
+#logs-table th.sorted-asc::after {
+    content: '↑';
+    opacity: 1;
+    color: var(--admin-primary);
+}
+
+#logs-table th.sorted-desc::after {
+    content: '↓';
+    opacity: 1;
+    color: var(--admin-primary);
+}
+
+.log-msg {
+    max-width: 500px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--admin-text);
+}
+
+.log-entry:hover .log-msg {
+    white-space: normal;
+    word-break: break-all;
+}

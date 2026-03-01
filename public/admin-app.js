@@ -5,7 +5,11 @@ let adminState = {
     userId: localStorage.getItem('dev_userId'),
     allStats: [], // Cache for local searching
     sortCol: 'createdAt',
-    sortDir: 'desc'
+    sortDir: 'desc',
+    logs: [],
+    selectedLogs: new Set(),
+    logSortCol: 'timestamp',
+    logSortDir: 'desc'
 };
 
 async function handleDevLogin() {
@@ -65,6 +69,171 @@ function handleSearch(query) {
     const filtered = adminState.allStats.filter(s => s.userId.toLowerCase().includes(q));
     renderStats({ details: filtered }, false);
     document.getElementById('search-count').innerText = `${filtered.length} found`;
+}
+
+let logInterval = null;
+
+async function showLogs() {
+    document.getElementById('dashboard-content').classList.add('hidden');
+    document.getElementById('logs-view').classList.remove('hidden');
+    adminState.selectedLogs.clear();
+    updateLogsActionBar();
+    fetchLogs();
+    if (!logInterval) {
+        logInterval = setInterval(fetchLogs, 5000);
+    }
+}
+
+function hideLogs() {
+    document.getElementById('dashboard-content').classList.remove('hidden');
+    document.getElementById('logs-view').classList.add('hidden');
+    if (logInterval) {
+        clearInterval(logInterval);
+        logInterval = null;
+    }
+}
+
+async function fetchLogs() {
+    try {
+        const response = await fetch(`${BASE_URL}/admin/logs`, {
+            headers: { 'Authorization': `Bearer ${adminState.token}` }
+        });
+        if (response.ok) {
+            const logs = await response.json();
+            adminState.logs = logs.map(l => {
+                const methodMatch = l.message.match(/^(GET|POST|PUT|PATCH|DELETE)/i);
+                return {
+                    ...l,
+                    method: methodMatch ? methodMatch[0].toUpperCase() : 'N/A'
+                };
+            });
+            renderLogs();
+        }
+    } catch (err) {
+        console.error('Failed to fetch logs:', err);
+    }
+}
+
+function handleLogSort(column) {
+    if (adminState.logSortCol === column) {
+        adminState.logSortDir = adminState.logSortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+        adminState.logSortCol = column;
+        adminState.logSortDir = 'asc';
+    }
+    renderLogs();
+}
+
+function toggleSelectAllLogs(checked) {
+    if (checked) {
+        adminState.logs.forEach(l => adminState.selectedLogs.add(l.id));
+    } else {
+        adminState.selectedLogs.clear();
+    }
+    renderLogs();
+}
+
+function toggleLogSelection(id, checked) {
+    if (checked) adminState.selectedLogs.add(id);
+    else adminState.selectedLogs.delete(id);
+    updateLogsActionBar();
+}
+
+function updateLogsActionBar() {
+    const btn = document.getElementById('btn-delete-logs');
+    if (adminState.selectedLogs.size > 0) {
+        btn.classList.remove('hidden');
+        btn.innerText = `Delete Selected (${adminState.selectedLogs.size})`;
+    } else {
+        btn.classList.add('hidden');
+        const selectAll = document.getElementById('select-all-logs');
+        if (selectAll) selectAll.checked = false;
+    }
+}
+
+async function deleteSelectedLogs() {
+    const ids = Array.from(adminState.selectedLogs);
+    if (ids.length === 0) return;
+    if (!confirm(`Permanently delete ${ids.length} log entries?`)) return;
+
+    try {
+        const response = await fetch(`${BASE_URL}/admin/logs`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${adminState.token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ ids })
+        });
+
+        if (response.ok) {
+            showToast(`Deleted ${ids.length} logs`, 'success');
+            adminState.selectedLogs.clear();
+            updateLogsActionBar();
+            await fetchLogs();
+        } else {
+            showToast('Failed to delete logs', 'error');
+        }
+    } catch (err) {
+        showToast('Error during deletion', 'error');
+    }
+}
+
+function renderLogs() {
+    const tbody = document.getElementById('logs-tbody');
+    let logs = [...adminState.logs];
+
+    // Sorting logic
+    if (adminState.logSortCol) {
+        logs.sort((a, b) => {
+            let valA = a[adminState.logSortCol];
+            let valB = b[adminState.logSortCol];
+            if (adminState.logSortCol === 'timestamp') {
+                valA = new Date(valA).getTime();
+                valB = new Date(valB).getTime();
+            }
+            if (valA < valB) return adminState.logSortDir === 'asc' ? -1 : 1;
+            if (valA > valB) return adminState.logSortDir === 'asc' ? 1 : -1;
+            return 0;
+        });
+    }
+
+    // Update Sort UI in head
+    document.querySelectorAll('#logs-table th.sortable').forEach(th => {
+        th.classList.remove('sorted-asc', 'sorted-desc');
+    });
+    const activeTh = document.querySelector(`#logs-table th.sortable[onclick*="'${adminState.logSortCol}'"]`);
+    if (activeTh) activeTh.classList.add(`sorted-${adminState.logSortDir}`);
+
+    if (logs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--admin-muted)">No activity logs found.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = logs.map(log => {
+        const levelClass = `log-level-${log.level.toLowerCase()}`;
+        const isChecked = adminState.selectedLogs.has(log.id);
+
+        return `
+            <tr>
+                <td>
+                    <input type="checkbox" class="selection-checkbox" 
+                        ${isChecked ? 'checked' : ''} 
+                        onchange="toggleLogSelection('${log.id}', this.checked)">
+                </td>
+                <td><span class="log-level ${levelClass}">${log.level}</span></td>
+                <td><span style="font-weight:700; font-family:'Fira Code'; font-size:0.7rem;">${log.method}</span></td>
+                <td>
+                    <div class="log-msg">${log.message}</div>
+                    <div class="log-source" style="font-size:0.65rem; opacity:0.6;">${log.file}:${log.line}</div>
+                </td>
+                <td style="font-size:0.75rem; color:var(--admin-muted); white-space:nowrap;">
+                    ${new Date(log.timestamp).toLocaleTimeString()}
+                </td>
+            </tr>
+        `;
+    }).join('');
+    updateLogsActionBar();
 }
 
 async function fetchStats() {

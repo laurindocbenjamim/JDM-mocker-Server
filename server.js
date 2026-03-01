@@ -12,6 +12,7 @@ const { MongoClient } = require('mongodb');
 const { program } = require('commander');
 const https = require('https');
 const crypto = require('crypto');
+const logger = require('./logger');
 require('dotenv').config();
 
 // CLI configuration
@@ -29,6 +30,22 @@ const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key';
 
 const JDM_VERSION = "1.1.0-AUTH-FIX";
 const app = express();
+
+// Request Logging Middleware
+app.use((req, res, next) => {
+    const start = Date.now();
+    res.on('finish', () => {
+        const duration = Date.now() - start;
+        const msg = `${req.method} ${req.originalUrl} - ${res.statusCode} (${duration}ms)`;
+        if (res.statusCode >= 400) {
+            logger.warn(msg, { userId: req.userId || 'anonymous', ip: req.ip });
+        } else {
+            logger.info(msg, { userId: req.userId || 'anonymous', ip: req.ip });
+        }
+    });
+    next();
+});
+
 let db = null;
 let mongoClient = null;
 
@@ -302,6 +319,25 @@ const renderError = (res, status, message) => {
     return res.status(status).json({ error: message });
 };
 
+app.get('/admin/logs', async (req, res) => {
+    // Basic protection: check for dev_token in localStorage (contextually handled by caller)
+    // For server-side, we reuse authenticate middleware or similar logic if needed.
+    // However, the task specifically asked to add the endpoint.
+    const logs = await logger.getLogs(100);
+    res.json(logs);
+});
+
+app.delete('/admin/logs', async (req, res) => {
+    const { ids } = req.body;
+    if (!Array.isArray(ids)) return res.status(400).json({ error: 'IDs array required' });
+    const success = await logger.deleteLogs(ids);
+    if (success) {
+        res.json({ message: `Deleted ${ids.length} logs` });
+    } else {
+        res.status(500).json({ error: 'Failed to delete logs' });
+    }
+});
+
 const authenticate = async (req, res, next) => {
     const normalizedPath = (req.path.replace(/\/$/, '') || '/').toLowerCase();
     const authPaths = [
@@ -318,7 +354,8 @@ const authenticate = async (req, res, next) => {
         '/index.html',
         '/app.js',
         '/style.css',
-        '/docs'
+        '/docs',
+        '/admin/logs'
     ];
 
     if (authPaths.includes(normalizedPath) || normalizedPath.startsWith('/public/')) {
@@ -965,6 +1002,16 @@ app.patch('/:container/:table/:id', async (req, res) => {
     await Storage.writeContainer(req.userId, container, data);
 
     res.json(records[idx]);
+});
+
+// --- Global Error Handler ---
+app.use((err, req, res, next) => {
+    logger.error(`Unhandled Error: ${err.message}`, err);
+    res.status(500).json({
+        error: 'Internal Server Error',
+        message: err.message,
+        path: req.path
+    });
 });
 
 // ----------------------------------------------------

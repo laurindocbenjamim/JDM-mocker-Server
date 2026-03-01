@@ -59,50 +59,94 @@
                 <a href="/crud-example" class="btn-remove"
                     style="border-color:var(--admin-primary); color:var(--admin-primary); text-decoration:none; display:inline-block; line-height:1.5;">Open
                     Client CRUD</a>
+                <button class="btn-remove" style="border-color:var(--admin-primary); color:var(--admin-primary);"
+                    onclick="showLogs()">Logs</button>
                 <button class="btn-remove" style="border-color:var(--admin-muted); color:var(--admin-muted);"
                     onclick="logout()">Logout</button>
             </div>
         </header>
 
-        <div class="summary-grid">
-            <div class="admin-card" style="padding:1.5rem; text-align:center;">
-                <div style="font-size:0.85rem; color:var(--admin-muted); margin-bottom:0.5rem;">Total Users</div>
-                <div id="stat-users" style="font-size:1.75rem; font-weight:800; color:var(--admin-primary)">0</div>
+        <div id="logs-view" class="hidden">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+                <div style="display:flex; align-items:center; gap:1rem;">
+                    <h2 style="font-size:1.25rem; font-weight:800; color:var(--admin-primary);">Activity Logs</h2>
+                    <button id="btn-delete-logs" class="bulk-btn danger hidden" onclick="deleteSelectedLogs()"
+                        style="position:static; padding: 4px 12px; font-size: 0.75rem;">Delete Selected</button>
+                </div>
+                <button class="btn-remove" style="border-color:var(--admin-muted); color:var(--admin-muted);"
+                    onclick="hideLogs()">Back to Dashboard</button>
             </div>
-            <div class="admin-card" style="padding:1.5rem; text-align:center;">
-                <div style="font-size:0.85rem; color:var(--admin-muted); margin-bottom:0.5rem;">Total Containers</div>
-                <div id="stat-containers" style="font-size:1.75rem; font-weight:800; color:var(--admin-primary)">0</div>
-            </div>
-            <div class="admin-card" style="padding:1.5rem; text-align:center;">
-                <div style="font-size:0.85rem; color:var(--admin-muted); margin-bottom:0.5rem;">Total Tables</div>
-                <div id="stat-tables" style="font-size:1.75rem; font-weight:800; color:var(--admin-primary)">0</div>
-            </div>
-            <div class="admin-card" style="padding:1.5rem; text-align:center;">
-                <div style="font-size:0.85rem; color:var(--admin-muted); margin-bottom:0.5rem;">Total Columns</div>
-                <div id="stat-columns" style="font-size:1.75rem; font-weight:800; color:var(--admin-primary)">0</div>
+            <div class="admin-card" style="padding:0; min-height:400px; max-height:70vh; overflow-y:auto;">
+                <div class="table-container">
+                    <table id="logs-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px;">
+                                    <input type="checkbox" id="select-all-logs"
+                                        onclick="toggleSelectAllLogs(this.checked)">
+                                </th>
+                                <th class="sortable" onclick="handleLogSort('level')">Level</th>
+                                <th class="sortable" onclick="handleLogSort('method')">Method</th>
+                                <th>Message</th>
+                                <th class="sortable" onclick="handleLogSort('timestamp')">Time</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logs-tbody">
+                            <tr>
+                                <td colspan="5" style="text-align:center; padding:2rem; color:var(--admin-muted)">
+                                    Loading
+                                    logs...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
-        <div class="admin-card" style="padding:0; overflow:hidden;">
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th style="width: 40px;">
-                                <input type="checkbox" id="select-all" class="selection-checkbox"
-                                    onclick="toggleSelectAll(this.checked)">
-                            </th>
-                            <th>Developer/User</th>
-                            <th>Containers</th>
-                            <th>Total Tables</th>
-                            <th class="sortable" onclick="handleSort('createdAt')">
-                                Created At <span id="sort-icon-createdAt" class="sort-icon"></span>
-                            </th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="stats-tbody"></tbody>
-                </table>
+        <div id="dashboard-content">
+            <div class="summary-grid">
+                <div class="admin-card" style="padding:1.5rem; text-align:center;">
+                    <div style="font-size:0.85rem; color:var(--admin-muted); margin-bottom:0.5rem;">Total Users</div>
+                    <div id="stat-users" style="font-size:1.75rem; font-weight:800; color:var(--admin-primary)">0</div>
+                </div>
+                <div class="admin-card" style="padding:1.5rem; text-align:center;">
+                    <div style="font-size:0.85rem; color:var(--admin-muted); margin-bottom:0.5rem;">Total Containers
+                    </div>
+                    <div id="stat-containers" style="font-size:1.75rem; font-weight:800; color:var(--admin-primary)">0
+                    </div>
+                </div>
+                <div class="admin-card" style="padding:1.5rem; text-align:center;">
+                    <div style="font-size:0.85rem; color:var(--admin-muted); margin-bottom:0.5rem;">Total Tables</div>
+                    <div id="stat-tables" style="font-size:1.75rem; font-weight:800; color:var(--admin-primary)">0</div>
+                </div>
+                <div class="admin-card" style="padding:1.5rem; text-align:center;">
+                    <div style="font-size:0.85rem; color:var(--admin-muted); margin-bottom:0.5rem;">Total Columns</div>
+                    <div id="stat-columns" style="font-size:1.75rem; font-weight:800; color:var(--admin-primary)">0
+                    </div>
+                </div>
+            </div>
+
+            <div class="admin-card" style="padding:0; overflow:hidden;">
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width: 40px;">
+                                    <input type="checkbox" id="select-all" class="selection-checkbox"
+                                        onclick="toggleSelectAll(this.checked)">
+                                </th>
+                                <th>Developer/User</th>
+                                <th>Containers</th>
+                                <th>Total Tables</th>
+                                <th class="sortable" onclick="handleSort('createdAt')">
+                                    Created At <span id="sort-icon-createdAt" class="sort-icon"></span>
+                                </th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stats-tbody"></tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
