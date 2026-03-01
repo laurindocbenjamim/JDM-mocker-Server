@@ -18,6 +18,29 @@ function init() {
     if (state.userId && (state.token || state.apiKey)) {
         fetchIntrospect();
     }
+
+    // Initialize Mobile UI
+    const overlay = document.createElement('div');
+    overlay.id = 'menu-overlay';
+    overlay.onclick = toggleMenu;
+    document.body.appendChild(overlay);
+
+    const mobileHeader = document.createElement('div');
+    mobileHeader.className = 'mobile-header';
+    mobileHeader.innerHTML = `
+        <div class="brand" style="margin-bottom:0">
+            <img src="/assets/logo.png" alt="JDM Mocker Logo" style="width: 24px; height: 24px;">
+            <span>JDM MOCKER</span>
+        </div>
+        <button class="btn-icon" onclick="toggleMenu()" style="margin-left:auto; background:none; border:none; color:var(--primary); cursor:pointer;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="3" y1="12" x2="21" y2="12"></line>
+                <line x1="3" y1="6" x2="21" y2="6"></line>
+                <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+        </button>
+    `;
+    document.body.insertBefore(mobileHeader, document.body.firstChild);
 }
 
 // --- Navigation ---
@@ -29,6 +52,17 @@ function showView(viewId) {
     // Find active nav item
     if (viewId === 'auth') document.querySelector('[onclick*="auth"]').classList.add('active');
     if (viewId === 'storage') document.getElementById('nav-storage').classList.add('active');
+
+    if (window.innerWidth <= 992) {
+        toggleMenu(); // Close menu on navigation
+    }
+}
+
+function toggleMenu() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('menu-overlay');
+    sidebar.classList.toggle('menu-open');
+    overlay.classList.toggle('active');
 }
 
 // --- API Helpers ---
@@ -258,6 +292,11 @@ function openCreateTableModal(container) {
         if (pPut) _customPaths.put = pPut;
         if (pDelete) _customPaths.delete = pDelete;
 
+        if (state.introspection.storage[container] && state.introspection.storage[container][table]) {
+            alert(`Table '${table}' already exists in container '${container}'`);
+            return;
+        }
+
         await api(`/${container}/${table}`, {
             method: 'POST',
             body: JSON.stringify({ _init: true, _customPaths })
@@ -279,6 +318,11 @@ async function createContainer() {
     const table = document.getElementById('new-container-table').value;
 
     if (!container || !table) return;
+
+    if (state.introspection.storage[container]) {
+        showToast(`Container '${container}' already exists`, 'warning');
+        return;
+    }
 
     await api(`/${container}/${table}`, {
         method: 'POST',
@@ -323,7 +367,45 @@ function viewTable(container, table) {
     `;
 
     renderTable();
+    renderEndpoints(container, table);
     showView('data');
+}
+
+function renderEndpoints(container, table) {
+    const dataObj = state.introspection.storage[container][table];
+    const customPaths = dataObj.customPaths || {};
+    const list = document.getElementById('endpoints-list');
+    list.innerHTML = '';
+
+    const host = window.location.origin;
+    const endpoints = [];
+
+    // Standard Endpoints
+    endpoints.push({ method: 'GET', path: `/${container}/${table}` });
+    endpoints.push({ method: 'POST', path: `/${container}/${table}` });
+    endpoints.push({ method: 'GET', path: `/${container}/${table}/:id` });
+    endpoints.push({ method: 'PATCH', path: `/${container}/${table}/:id` });
+    endpoints.push({ method: 'DELETE', path: `/${container}/${table}/:id` });
+
+    // Custom Endpoints
+    Object.entries(customPaths).forEach(([method, path]) => {
+        endpoints.push({ method: method.toUpperCase(), path, isCustom: true });
+    });
+
+    endpoints.forEach(ep => {
+        const item = document.createElement('div');
+        item.className = 'endpoint-item';
+        const fullUrl = `${host}${ep.path}`;
+
+        item.innerHTML = `
+            <div class="endpoint-info">
+                <span class="endpoint-method badge-${ep.method.toLowerCase()}">${ep.method}</span>
+                <span class="endpoint-path">${ep.path} ${ep.isCustom ? '<span style="color:var(--primary); font-size:0.6rem;">(CUSTOM)</span>' : ''}</span>
+            </div>
+            <button class="copy-btn" onclick="copyToClipboard('${fullUrl}')">Copy URL</button>
+        `;
+        list.appendChild(item);
+    });
 }
 
 async function openSchemaModal() {
@@ -393,6 +475,13 @@ async function addColumn() {
     errorEl.classList.add('hidden');
 
     const { container, table } = state.activeContext;
+    const dataObj = state.introspection.storage[container][table];
+
+    if (dataObj.schema && dataObj.schema[colName]) {
+        errorEl.innerText = `Column '${colName}' already exists`;
+        errorEl.classList.remove('hidden');
+        return;
+    }
 
     const { status, data } = await api(`/${container}/${table}/schema-definition`, {
         method: 'PATCH',
@@ -613,6 +702,14 @@ async function saveRecord(id) {
 function closeModal() {
     document.getElementById('modal-container').classList.add('hidden');
     document.getElementById('modal-confirm').style.display = 'inline-flex';
+}
+
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        showToast('Copied to clipboard!');
+    }).catch(err => {
+        showToast('Failed to copy', 'error');
+    });
 }
 
 // --- Identity UI ---

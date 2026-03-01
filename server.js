@@ -212,7 +212,7 @@ app.use(async (req, res, next) => {
     const pathsToSkip = [
         '/introspect', '/auth', '/containers', '/admin', '/dev-admin',
         '/crud-example', '/favicon.ico', '/index.html', '/app.js', '/style.css',
-        '/assets', '/public', '/reg.log'
+        '/assets', '/public', '/reg.log', '/docs'
     ];
     if (pathsToSkip.some(p => req.path.startsWith(p))) return next();
 
@@ -317,7 +317,8 @@ const authenticate = async (req, res, next) => {
         '/crud-xample', // Failsafe for user typo
         '/index.html',
         '/app.js',
-        '/style.css'
+        '/style.css',
+        '/docs'
     ];
 
     if (authPaths.includes(normalizedPath) || normalizedPath.startsWith('/public/')) {
@@ -446,6 +447,11 @@ app.get('/dev-admin', (req, res) => {
 // Route to serve Client CRUD Example
 app.get('/crud-example', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Route to serve Modern Documentation
+app.get('/docs', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'docs.html'));
 });
 
 app.use(authenticate);
@@ -750,6 +756,9 @@ app.patch('/:container/:table/schema-definition', async (req, res) => {
         if (remove) {
             delete data[table]._schema[remove];
         } else if (name && type) {
+            if (data[table]._schema[name]) {
+                return res.status(400).json({ error: `Column '${name}' already exists in table '${table}'` });
+            }
             data[table]._schema[name] = type;
         }
     } else {
@@ -866,6 +875,8 @@ app.post('/:container/:table', async (req, res) => {
             return res.status(201).json({ message: 'Table initialized' });
         }
         data[table] = [];
+    } else if (req.body._init) {
+        return res.status(400).json({ error: `Table '${table}' already exists in container '${container}'` });
     }
 
     const isStructured = !Array.isArray(data[table]);

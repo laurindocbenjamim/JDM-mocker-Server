@@ -60,6 +60,11 @@ The project includes built-in stress and load testing scripts to simulate high-t
 
 1. **Stress Test (Autocannon - Ultra Fast)**
    Runs a high-throughput raw connection test dynamically creating a user, generating a token, and hammering the DB.
+
+    ```bash
+   npm test
+   ```
+
    ```bash
    npm run test:stress
    ```

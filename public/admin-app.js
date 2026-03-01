@@ -3,7 +3,9 @@ const BASE_URL = ''; // Use relative paths for same-origin
 let adminState = {
     token: localStorage.getItem('dev_token'),
     userId: localStorage.getItem('dev_userId'),
-    allStats: [] // Cache for local searching
+    allStats: [], // Cache for local searching
+    sortCol: 'createdAt',
+    sortDir: 'desc'
 };
 
 async function handleDevLogin() {
@@ -91,10 +93,53 @@ async function fetchStats() {
     }
 }
 
+function handleSort(column) {
+    if (adminState.sortCol === column) {
+        adminState.sortDir = adminState.sortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+        adminState.sortCol = column;
+        adminState.sortDir = 'asc';
+    }
+
+    // Update search if active, otherwise render all
+    const searchInput = document.getElementById('user-search');
+    if (searchInput && searchInput.value.trim()) {
+        handleSearch(searchInput.value);
+    } else {
+        renderStats({ details: adminState.allStats }, false);
+    }
+}
+
 function renderStats(data, updateSummary = true) {
     if (!data) return;
-    const stats = data.details || [];
+    let stats = [...(data.details || [])];
     const summary = data.summary || { totalUsers: 0, totalContainers: 0, totalTables: 0, totalColumns: 0 };
+
+    // Apply sorting
+    if (adminState.sortCol) {
+        stats.sort((a, b) => {
+            let valA = a[adminState.sortCol];
+            let valB = b[adminState.sortCol];
+
+            if (adminState.sortCol === 'createdAt') {
+                valA = new Date(valA).getTime();
+                valB = new Date(valB).getTime();
+            }
+
+            if (valA < valB) return adminState.sortDir === 'asc' ? -1 : 1;
+            if (valA > valB) return adminState.sortDir === 'asc' ? 1 : -1;
+            return 0;
+        });
+    }
+
+    // Update Sort UI
+    document.querySelectorAll('th.sortable').forEach(th => {
+        th.classList.remove('sorted-asc', 'sorted-desc');
+    });
+    const activeTh = document.querySelector(`th.sortable[onclick*="${adminState.sortCol}"]`);
+    if (activeTh) {
+        activeTh.classList.add(`sorted-${adminState.sortDir}`);
+    }
 
     // Update summary cards
     if (updateSummary && document.getElementById('stat-users')) {
