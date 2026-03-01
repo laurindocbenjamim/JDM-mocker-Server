@@ -168,12 +168,12 @@ const Storage = {
     async getSecurity(userId) {
         if (STORE_MODE === 'mongodb') {
             const user = await db.collection('users').findOne({ userId });
-            return user?.security || { validation: { GET: true, POST: true, PUT: true, PATCH: true, DELETE: true } };
+            return user?.security || { validation: { GET: false, POST: false, PUT: false, PATCH: false, DELETE: true } };
         } else {
             try {
                 return JSON.parse(await fs.readFile(path.join(DATA_DIR, userId, 'security.json'), 'utf8'));
             } catch {
-                return { validation: { GET: true, POST: true, PUT: true, PATCH: true, DELETE: true } };
+                return { validation: { GET: false, POST: false, PUT: false, PATCH: false, DELETE: true } };
             }
         }
     },
@@ -232,7 +232,7 @@ const authenticateAndRoute = async (req, res, next) => {
     const skipPaths = [
         '/auth/register', '/auth/login', '/auth/dev-login', '/dev-admin',
         '/favicon.ico', '/admin.html', '/admin-app.js', '/admin-style.css',
-        '/crud-example', '/index.html', '/app.js', '/style.css', '/docs', '/admin/logs'
+        '/crud-example', '/index.html', '/app.js', '/style.css', '/docs', '/admin/logs', '/auth/security'
     ];
     if (skipPaths.includes(normalizedPath) || normalizedPath.startsWith('/public/')) {
         return next();
@@ -254,7 +254,7 @@ const authenticateAndRoute = async (req, res, next) => {
             req.userRole = decoded.role;
             userId = decoded.userId;
         } catch (e) {
-            // Only error if validation is forced (checked later)
+            // Token invalid but we don't block yet
         }
     }
 
@@ -271,7 +271,7 @@ const authenticateAndRoute = async (req, res, next) => {
     // We MUST use req.userId here to fetch the correct user's settings from MongoDB
     const security = await Storage.getSecurity(req.userId);
     const method = req.method.toUpperCase();
-    const isValidationRequired = security.validation[method] !== false;
+    const isValidationRequired = security.validation[method] === true; // Strict check for TRUE
 
     if (isValidationRequired && !req.userRole) {
         return renderError(res, 401, `Unauthorized: Token required for ${method} requests.`);

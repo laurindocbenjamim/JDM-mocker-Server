@@ -214,7 +214,10 @@ async function handleRegister() {
         state.userId = data['x-user-id'];
         localStorage.setItem('jdm_test_id', state.userId);
         updateIdentityUI();
-        log('Identity created successfully.');
+        log('Identity created successfully. Logging in...');
+
+        // Auto-login to get token
+        await handleLogin();
     }
 }
 
@@ -615,7 +618,14 @@ async function deleteCustomPath(method) {
 async function openSchemaModal() {
     const { container, table } = state.activeContext;
     const dataObj = state.introspection.storage[container][table];
-    const schema = dataObj.schema_preview || [];
+
+    // Unified Schema Management: Combine PK, defined schema, and detected columns from data
+    const activeSchema = dataObj.schema || {};
+    const schemaKeys = Array.from(new Set([
+        state.editingPk,
+        ...Object.keys(activeSchema),
+        ...(dataObj.schema_preview || [])
+    ]));
 
     const modal = document.getElementById('modal-container');
     const fields = document.getElementById('modal-fields');
@@ -640,46 +650,31 @@ async function openSchemaModal() {
         </div>
 
         <div style="margin-bottom: 1.5rem;">
-            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem; font-weight:600">Current Schema & Primary Key:</p>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem; font-weight:600">All Table Columns:</p>
             <div class="column-list">
-                ${Object.entries(dataObj.schema || {}).map(([col, type]) => {
+                ${schemaKeys.map(col => {
         const isPk = col === state.editingPk;
+        const type = activeSchema[col] || (col === '_id' ? 'UUID (Default)' : 'Detected from Data');
         return `
                         <div class="column-item" style="border-left: 3px solid ${isPk ? 'var(--primary)' : 'transparent'}">
                             <div class="column-info">
                                 <span class="column-name">${col} ${isPk ? '<span class="badge badge-get" style="font-size:0.5rem; margin-left:4px">PK</span>' : ''}</span>
-                                <span class="column-type">${type}</span>
+                                <span class="column-type" style="color: ${activeSchema[col] ? 'var(--primary)' : 'var(--text-muted)'}">${type}</span>
                             </div>
                             <div style="display:flex; align-items:center; gap:0.4rem">
                                 <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.75rem; color:var(--text-muted); padding: 4px 12px; border-radius:4px; border: 1px solid ${isPk ? 'var(--primary)' : 'var(--border)'}; ${isPk ? 'background:rgba(59,130,246,0.1); color:var(--primary)' : ''}">
                                     <input type="checkbox" ${isPk ? 'disabled checked' : ''} onchange="if(this.checked) setAsPrimaryKey('${col}')" style="cursor:pointer; width:16px; height:16px;">
                                     PK
                                 </label>
-                                ${col !== '_id' ? `
-                                    <button class="btn-delete-icon" onclick="deleteColumn('${col}')" title="Delete Column">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                                            <path d="M3 6h18m-2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                        </svg>
-                                    </button>
-                                ` : '<span style="font-size:0.7rem; color:var(--text-muted); align-self:center">System</span>'}
+                                <button class="btn-delete-icon" onclick="deleteColumn('${col}')" title="Delete Column" ${isPk ? 'disabled style="opacity:0.3; cursor:not-allowed"' : ''}>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                        <path d="M3 6h18m-2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                    </svg>
+                                </button>
                             </div>
                         </div>
                     `;
     }).join('')}
-                ${(!dataObj.schema || Object.keys(dataObj.schema).length === 0) && schema.length > 0 ? `
-                    <p style="font-size: 0.7rem; color: var(--text-muted); margin: 1rem 0 0.5rem 0;">Preview from data (untyped):</p>
-                    <div style="display: grid; grid-template-columns: 1fr; gap:0.5rem;">
-                        ${schema.map(col => `
-                             <div class="column-item" style="padding: 0.5rem;">
-                                <span style="font-size:0.85rem; font-weight:500">${col}</span>
-                                <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.75rem; color:var(--text-muted); padding: 2px 10px; border-radius:4px; border: 1px solid var(--border);">
-                                    <input type="checkbox" onchange="if(this.checked) setAsPrimaryKey('${col}')" style="cursor:pointer">
-                                    Set as PK
-                                </label>
-                             </div>
-                        `).join('')}
-                    </div>
-                ` : ''}
             </div>
         </div>
     `;
