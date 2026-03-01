@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JDM Mocker - Documentation</title>
+    <link rel="stylesheet" href="style.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap"
+        rel="stylesheet">
+    <style>
+        .docs-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+            background: white;
+            min-height: 100vh;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        @media (max-width: 992px) {
+            .docs-container {
+                padding: 1rem;
+            }
+
+            .docs-section h1 {
+                font-size: 1.75rem;
+            }
+
+            .code-header {
+                font-size: 0.65rem;
+            }
+
+            .tab-btn {
+                padding: 0.75rem 1rem;
+                font-size: 0.8rem;
+            }
+        }
+
+        body {
+            height: auto !important;
+            overflow-y: auto !important;
+            background: var(--bg-main);
+        }
+
+        .docs-section {
+            margin-bottom: 3rem;
+        }
+
+        .docs-section h2 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: var(--primary);
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 0.5rem;
+        }
+
+        .docs-section p {
+            margin-bottom: 1rem;
+        }
+
+        .code-block {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 8px;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+
+        .endpoint-table th,
+        .endpoint-table td {
+            text-align: left;
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .method-badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-weight: 700;
+            font-size: 0.75rem;
+            color: white;
+            text-transform: uppercase;
+        }
+
+        .get {
+            background: #10b981;
+        }
+
+        .post {
+            background: #3b82f6;
+        }
+
+        .patch {
+            background: #f59e0b;
+        }
+
+        .delete {
+            background: #ef4444;
+        }
+
+        .docs-section h1 {
+            font-size: 2.25rem;
+            margin-bottom: 1.5rem;
+            color: var(--text-main);
+        }
+
+        /* Modern Code Editor Style */
+        .code-container {
+            position: relative;
+            background: #1e293b;
+            border-radius: 8px;
+            margin: 1rem 0;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .code-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 1rem;
+            background: #0f172a;
+            border-bottom: 1px solid #334155;
+            color: #94a3b8;
+            font-size: 0.75rem;
+            font-family: 'Inter', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .copy-btn-mini {
+            background: #334155;
+            color: #f8fafc;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.7rem;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .copy-btn-mini:hover {
+            background: var(--primary);
+        }
+
+        .code-block {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 1.25rem;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+            margin: 0;
+            /* Override previous margin */
+            line-height: 1.5;
+        }
+
+        .tab-container {
+            margin: 2rem 0;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            background: white;
+            box-shadow: var(--shadow);
+        }
+
+        .tabs {
+            display: flex;
+            background: #f8fafc;
+            border-bottom: 1px solid var(--border);
+            padding: 0 0.5rem;
+            overflow-x: auto;
+            scrollbar-width: none;
+            /* Hide scrollbar for Chrome/Safari */
+        }
+
+        .tabs::-webkit-scrollbar {
+            display: none;
+        }
+
+        .tab-btn {
+            padding: 1rem 1.25rem;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--secondary);
+            font-size: 0.85rem;
+            transition: all 0.2s;
+            border-bottom: 2px solid transparent;
+        }
+
+        .tab-btn.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .docs-subsection {
+            margin-top: 2.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .docs-subsection h3 {
+            font-size: 1.2rem;
+            margin-bottom: 0.75rem;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="docs-container">
+        <header style="margin-bottom: 3rem; display: flex; align-items: center; justify-content: space-between;">
+            <div class="brand">
+                <img src="/assets/logo.png" alt="JDM Mocker Logo"
+                    style="width: 32px; height: 32px; object-fit: contain;">
+                <span>JDM MOCKER</span>
+            </div>
+            <a href="index.html" class="btn btn-secondary">Back to Client</a>
+        </header>
+
+        <div class="docs-section">
+            <h1>Quick Start Guide</h1>
+            <p>JDM Mocker is a powerful tool to create mock servers and test APIs quickly. This guide will help you
+                understand how to use the developer console and implement the mock server in your workflow.</p>
+        </div>
+
+        <div class="docs-section">
+            <h2>1. Authentication</h2>
+            <p>Before interacting with the server, you need an identity.</p>
+            <ul>
+                <li><strong>Register:</strong> Use the "Create Identity" button to generate a unique User UUID.</li>
+                <li><strong>Login:</strong> Select a role (Admin/Viewer) and click "Login" to obtain a JWT token.</li>
+            </ul>
+            <div class="code-block">
+                POST /auth/register
+                Response: { "x-user-id": "your-uuid" }
+
+                POST /auth/login
+                Body: { "role": "admin", "expiresIn": 3600000 }
+                Response: { "token": "jwt-token", "role": "admin" }
+            </div>
+        </div>
+
+        <div class="docs-section">
+            <h2>2. Storage Explorer</h2>
+            <p>Manage your data using <strong>Containers</strong> and <strong>Tables</strong>.</p>
+            <ul>
+                <li><strong>Container:</strong> A logical grouping of tables (like a database).</li>
+                <li><strong>Table:</strong> Stores your data records. Creating a table requires an initial record or a
+                    schema definition.</li>
+            </ul>
+        </div>
+
+        <div class="docs-section">
+            <h2>3. API Usage</h2>
+            <p>Once a table is created, you can access it via standard REST endpoints. Replace <code>{container}</code>
+                and <code>{table}</code> with your names.</p>
+            <table class="endpoint-table" style="width: 100%;">
+                <thead>
+                    <tr>
+                        <th>Method</th>
+                        <th>Endpoint</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="method-badge get">GET</span></td>
+                        <td><code>/{container}/{table}</code></td>
+                        <td>List all records</td>
+                    </tr>
+                    <tr>
+                        <td><span class="method-badge post">POST</span></td>
+                        <td><code>/{container}/{table}</code></td>
+                        <td>Create a new record</td>
+                    </tr>
+                    <tr>
+                        <td><span class="method-badge get">GET</span></td>
+                        <td><code>/{container}/{table}/:id</code></td>
+                        <td>Get a specific record</td>
+                    </tr>
+                    <tr>
+                        <td><span class="method-badge patch">PATCH</span></td>
+                        <td><code>/{container}/{table}/:id</code></td>
+                        <td>Update a record</td>
+                    </tr>
+                    <tr>
+                        <td><span class="method-badge delete">DELETE</span></td>
+                        <td><code>/{container}/{table}/:id</code></td>
+                        <td>Delete a record</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="docs-section">
+            <h2>4. Custom Endpoints</h2>
+            <p>You can define custom paths for your tables to match your application's requirements. This is done during
+                table creation or via the "Manage Columns" modal.</p>
+            <ul>
+                <li><strong>Defining a Path:</strong> In the Table Modal, look for the "Custom Endpoint" field.</li>
+                <li><strong>Naming:</strong> Use paths like <code>/v1/users</code> or <code>/api/orders</code>. The
+                    server will automatically route these to your table.</li>
+            </ul>
+
+            <div class="docs-subsection">
+                <h3>Initialize Table with Custom Path</h3>
+                <p>Use the <code>_customPaths</code> meta-field to define routes during initialization.</p>
+                <div class="tab-container" data-group="custom-init">
+                    <div class="tabs">
+                        <button class="tab-btn active"
+                            onclick="openTab(event, 'js-custom-init', 'custom-init')">JavaScript</button>
+                        <button class="tab-btn"
+                            onclick="openTab(event, 'py-custom-init', 'custom-init')">Python</button>
+                    </div>
+                    <div id="js-custom-init" class="tab-content active">
+                        <div class="code-container">
+                            <div class="code-header"><span>JavaScript</span><button class="copy-btn-mini"
+                                    onclick="copyCode(this)">Copy</button></div>
+                            <pre class="code-block">fetch('http://localhost:5000/test-db/custom-table', {
+  method: 'POST',
+  body: JSON.stringify({
+    _init: true,
+    _customPaths: {
+      get: '/api/v1/users',
+      post: '/api/v1/create-user'
+    }
+  })
+});</pre>
+                        </div>
+                    </div>
+                    <div id="py-custom-init" class="tab-content">
+                        <div class="code-container">
+                            <div class="code-header"><span>Python</span><button class="copy-btn-mini"
+                                    onclick="copyCode(this)">Copy</button></div>
+                            <pre class="code-block">import requests
+res = requests.post('http://localhost:5000/test-db/custom-table', json={
+    '_init': True,
+    '_customPaths': {
+        'get': '/api/v1/users',
+        'post': '/api/v1/create-user'
+    }
+})</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="docs-section">
+            <h2>5. Storage & Schema Management</h2>
+            <p>Go beyond basic CRUD with container and schema management.</p>
+
+            <div class="docs-subsection">
+                <h3>Container Operations</h3>
+                <p>List all containers or delete one entirely.</p>
+                <div class="tab-container" data-group="container-ops">
+                    <div class="tabs">
+                        <button class="tab-btn active"
+                            onclick="openTab(event, 'js-container', 'container-ops')">JavaScript</button>
+                        <button class="tab-btn"
+                            onclick="openTab(event, 'curl-container', 'container-ops')">cURL</button>
+                    </div>
+                    <div id="js-container" class="tab-content active">
+                        <div class="code-container">
+                            <div class="code-header"><span>JavaScript</span><button class="copy-btn-mini"
+                                    onclick="copyCode(this)">Copy</button></div>
+                            <pre class="code-block">// List Containers
+fetch('http://localhost:5000/containers').then(res => res.json());
+
+// Delete Container
+fetch('http://localhost:5000/containers/my_db', { method: 'DELETE' });</pre>
+                        </div>
+                    </div>
+                    <div id="curl-container" class="tab-content">
+                        <div class="code-container">
+                            <div class="code-header"><span>cURL</span><button class="copy-btn-mini"
+                                    onclick="copyCode(this)">Copy</button></div>
+                            <pre class="code-block">curl -X GET http://localhost:5000/containers
+curl -X DELETE http://localhost:5000/containers/my_db</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="docs-subsection">
+                <h3>Schema Validation</h3>
+                <p>JDM Mocker supports typed validation. Use <code>_schema</code> to enforce types (String, Number,
+                    Boolean, Date).</p>
+                <div class="tab-container" data-group="schema-ops">
+                    <div class="tabs">
+                        <button class="tab-btn active"
+                            onclick="openTab(event, 'js-schema', 'schema-ops')">JavaScript</button>
+                        <button class="tab-btn" onclick="openTab(event, 'py-schema', 'schema-ops')">Python</button>
+                    </div>
+                    <div id="js-schema" class="tab-content active">
+                        <div class="code-container">
+                            <div class="code-header"><span>JavaScript</span><button class="copy-btn-mini"
+                                    onclick="copyCode(this)">Copy</button></div>
+                            <pre class="code-block">fetch('http://localhost:5000/db/users', {
+  method: 'POST',
+  body: JSON.stringify({
+    _schema: { name: 'String', age: 'Number', joined: 'Date' }
+  })
+});</pre>
+                        </div>
+                    </div>
+                    <div id="py-schema" class="tab-content">
+                        <div class="code-container">
+                            <div class="code-header"><span>Python</span><button class="copy-btn-mini"
+                                    onclick="copyCode(this)">Copy</button></div>
+                            <pre class="code-block">import requests
+payload = { "_schema": { "name": "String", "age": "Number" } }
+requests.post('http://localhost:5000/db/users', json=payload)</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="docs-section">
+            <h2>6. JWT: Header vs. Cookie Requests</h2>
+            <p>JDM Mocker supports both traditional header-based and modern HttpOnly cookie-based authentication.</p>
+
+            <div class="docs-subsection">
+                <h3>Header-based (Traditional API)</h3>
+                <p>Send the token manually in the <code>Authorization</code>, <code>CSRF-Token</code>, or
+                    <code>x-csrf-token</code> header.</p>
+                <div class="tab-container" data-group="jwt-header">
+                    <div class="tabs">
+                        <button class="tab-btn active"
+                            onclick="openTab(event, 'js-jwt-h', 'jwt-header')">JavaScript</button>
+                        <button class="tab-btn" onclick="openTab(event, 'py-jwt-h', 'jwt-header')">Python</button>
+                    </div>
+                    <div id="js-jwt-h" class="tab-content active">
+                        <div class="code-container">
+                            <div class="code-header"><span>JavaScript</span><button class="copy-btn-mini"
+                                    onclick="copyCode(this)">Copy</button></div>
+                            <pre class="code-block">fetch('http://localhost:5000/my_db/data', {
+  headers: {
+    'Authorization': 'Bearer YOUR_JWT_TOKEN',
+    'x-user-id': 'YOUR_UUID'
+  }
+});</pre>
+                        </div>
+                    </div>
+                    <div id="py-jwt-h" class="tab-content">
+                        <div class="code-container">
+                            <div class="code-header"><span>Python</span><button class="copy-btn-mini"
+                                    onclick="copyCode(this)">Copy</button></div>
+                            <pre class="code-block">import requests
+headers = {
+    'Authorization': 'Bearer YOUR_JWT_TOKEN',
+    'x-user-id': 'YOUR_UUID'
+}
+requests.get('http://localhost:5000/my_db/data', headers=headers)</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="docs-subsection">
+                <h3>Cookie-based (HttpOnly)</h3>
+                <p>The server automatically sets an <code>auth_token</code> cookie upon login. Modern browsers will
+                    include this cookie in every subsequent request to JDM Mocker.</p>
+                <div class="code-container">
+                    <div class="code-header"><span>JavaScript (Auto-handled)</span></div>
+                    <pre class="code-block">// Simply login once, and your browser handles the rest!
+fetch('http://localhost:5000/auth/login', { ... }).then(() => {
+   // Every fetch hereafter automatically includes the HttpOnly Cookie
+   fetch('http://localhost:5000/my_db/data');
+});</pre>
+                </div>
+            </div>
+        </div>
+
+        <div class="docs-section">
+            <h2>6. Frontend Integration</h2>
+            <p>To integrate JDM Mocker into your application, use the endpoints created for each table. Below are
+                detailed examples for all CRUD operations.</p>
+
+            <!-- Example 1: GET (List/Select) -->
+            <div class="docs-subsection">
+                <h3>1. List All Records (GET)</h3>
+                <p>Retrieve all records from a specific table.</p>
+                <div class="tab-container" data-group="get-list">
+                    <div class="tabs">
+                        <button class="tab-btn active"
+                            onclick="openTab(event, 'js-get-list', 'get-list')">JavaScript</button>
+                        <button class="tab-btn" onclick="openTab(event, 'py-get-list', 'get-list')">Python</button>
+                        <button class="tab-btn" onclick="openTab(event, 'curl-get-list', 'get-list')">cURL</button>
+                    </div>
+                    <div id="js-get-list" class="tab-content active">
+                        <div class="code-container">
+                            <div class="code-header"><span>JavaScript</span><button class="copy-btn-mini"
+                                    onclick="copyCode(this)">Copy</button></div>
+                            <pre class="code-block">fetch('http://localhost:5000/my_container/users')
+  .then(response => response.json())
+  .then(data => console.log(data));</pre>
+                        </div>
+                    </div>
+                    <div id="py-get-list" class="tab-content">
+                        <div class="code-container">
+                            <div class="code-header"><span>Python</span><button class="copy-btn-mini"
+                                    onclick="copyCode(this)">Copy</button></div>
+                            <pre class="code-block">import requests
+response = requests.get('http://localhost:5000/my_container/users')
+print(response.json())</pre>
+                        </div>
+                    </div>
+                    <div id="curl-get-list" class="tab-content">
+                        <div class="code-container">
+                            <div class="code-header"><span>cURL</span><button class="copy-btn-mini"
+                                    onclick="copyCode(this)">Copy</button></div>
+                            <pre class="code-block">curl -X GET http://localhost:5000/my_container/users</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Example 2: POST (Create) -->
+            <div class="docs-subsection">
+                <h3>2. Create New Record (POST)</h3>
+                <p>Create a new record in the table. If the table doesn't exist, this will initialize it.</p>
+                <div class="tab-container" data-group="post-create">
+                    <div class="tabs">
+                        <button class="tab-btn active"
+                            onclick="openTab(event, 'js-post', 'post-create')">JavaScript</button>
+                        <button class="tab-btn" onclick="openTab(event, 'py-post', 'post-create')">Python</button>
+                        <button class="tab-btn" onclick="openTab(event, 'curl-post', 'post-create')">cURL</button>
+                    </div>
+                    <div id="js-post" class="tab-content active">
+                        <div class="code-container">
+                            <div class="code-header"><span>JavaScript</span><button class="copy-btn-mini"
+                                    onclick="copyCode(this)">Copy</button></div>
+                            <pre class="code-block">fetch('http://localhost:5000/my_container/users', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ name: 'Jane Doe', email: 'jane@example.com' })
+}).then(res => res.json()).then(console.log);</pre>
+                        </div>
+                    </div>
+                    <div id="py-post" class="tab-content">
+                        <div class="code-container">
+                            <div class="code-header"><span>Python</span><button class="copy-btn-mini"
+                                    onclick="copyCode(this)">Copy</button></div>
+                            <pre class="code-block">import requests
+data = {'name': 'Jane Doe', 'email': 'jane@example.com'}
+response = requests.post('http://localhost:5000/my_container/users', json=data)
+print(response.json())</pre>
+                        </div>
+                    </div>
+                    <div id="curl-post" class="tab-content">
+                        <div class="code-container">
+                            <div class="code-header"><span>cURL</span><button class="copy-btn-mini"
+                                    onclick="copyCode(this)">Copy</button></div>
+                            <pre class="code-block">curl -X POST http://localhost:5000/my_container/users \
+     -H "Content-Type: application/json" \
+     -d '{"name": "Jane Doe", "email": "jane@example.com"}'</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Example 3: PATCH (Update) -->
+            <div class="docs-subsection">
+                <h3>3. Update Record (PATCH / PUT)</h3>
+                <p>Update specific fields of an existing record by ID.</p>
+                <div class="tab-container" data-group="patch-update">
+                    <div class="tabs">
+                        <button class="tab-btn active"
+                            onclick="openTab(event, 'js-patch', 'patch-update')">JavaScript</button>
+                        <button class="tab-btn" onclick="openTab(event, 'py-patch', 'patch-update')">Python</button>
+                        <button class="tab-btn" onclick="openTab(event, 'curl-patch', 'patch-update')">cURL</button>
+                    </div>
+                    <div id="js-patch" class="tab-content active">
+                        <div class="code-container">
+                            <div class="code-header"><span>JavaScript</span><button class="copy-btn-mini"
+                                    onclick="copyCode(this)">Copy</button></div>
+                            <pre class="code-block">fetch('http://localhost:5000/my_container/users/RECORD_ID', {
+  method: 'PATCH',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ name: 'Jane Updated' })
+}).then(res => res.json()).then(console.log);</pre>
+                        </div>
+                    </div>
+                    <div id="py-patch" class="tab-content">
+                        <div class="code-container">
+                            <div class="code-header"><span>Python</span><button class="copy-btn-mini"
+                                    onclick="copyCode(this)">Copy</button></div>
+                            <pre class="code-block">import requests
+response = requests.patch(
+    'http://localhost:5000/my_container/users/RECORD_ID',
+    json={'name': 'Jane Updated'}
+)
+print(response.json())</pre>
+                        </div>
+                    </div>
+                    <div id="curl-patch" class="tab-content">
+                        <div class="code-container">
+                            <div class="code-header"><span>cURL</span><button class="copy-btn-mini"
+                                    onclick="copyCode(this)">Copy</button></div>
+                            <pre class="code-block">curl -X PATCH http://localhost:5000/my_container/users/RECORD_ID \
+     -H "Content-Type: application/json" \
+     -d '{"name": "Jane Updated"}'</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Example 4: DELETE -->
+            <div class="docs-subsection">
+                <h3>4. Delete Record (DELETE)</h3>
+                <p>Permanently remove a record from the table.</p>
+                <div class="tab-container" data-group="delete-op">
+                    <div class="tabs">
+                        <button class="tab-btn active"
+                            onclick="openTab(event, 'js-delete', 'delete-op')">JavaScript</button>
+                        <button class="tab-btn" onclick="openTab(event, 'py-delete', 'delete-op')">Python</button>
+                        <button class="tab-btn" onclick="openTab(event, 'curl-delete', 'delete-op')">cURL</button>
+                    </div>
+                    <div id="js-delete" class="tab-content active">
+                        <div class="code-container">
+                            <div class="code-header"><span>JavaScript</span><button class="copy-btn-mini"
+                                    onclick="copyCode(this)">Copy</button></div>
+                            <pre class="code-block">fetch('http://localhost:5000/my_container/users/RECORD_ID', {
+  method: 'DELETE'
+}).then(res => console.log('Deleted'));</pre>
+                        </div>
+                    </div>
+                    <div id="py-delete" class="tab-content">
+                        <div class="code-container">
+                            <div class="code-header"><span>Python</span><button class="copy-btn-mini"
+                                    onclick="copyCode(this)">Copy</button></div>
+                            <pre class="code-block">import requests
+requests.delete('http://localhost:5000/my_container/users/RECORD_ID')</pre>
+                        </div>
+                    </div>
+                    <div id="curl-delete" class="tab-content">
+                        <div class="code-container">
+                            <div class="code-header"><span>cURL</span><button class="copy-btn-mini"
+                                    onclick="copyCode(this)">Copy</button></div>
+                            <pre
+                                class="code-block">curl -X DELETE http://localhost:5000/my_container/users/RECORD_ID</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="docs-section">
+            <h2>7. Admin Console</h2>
+            <p>The developer admin console (<code>/admin.html</code>) provides a high-level overview of all users,
+                containers, and tables on the server. You can monitor platform stats and manage users globally.</p>
+        </div>
+    </div>
+
+    <script>
+        function openTab(evt, tabId, groupName) {
+            const container = evt.currentTarget.closest('.tab-container');
+            const contents = container.getElementsByClassName("tab-content");
+            for (let content of contents) {
+                content.classList.remove("active");
+            }
+            const buttons = container.getElementsByClassName("tab-btn");
+            for (let btn of buttons) {
+                btn.classList.remove("active");
+            }
+            document.getElementById(tabId).classList.add("active");
+            evt.currentTarget.classList.add("active");
+        }
+
+        async function copyCode(btn) {
+            const code = btn.closest('.code-container').querySelector('pre').innerText;
+            try {
+                await navigator.clipboard.writeText(code);
+                const originalText = btn.innerText;
+                btn.innerText = 'Copied!';
+                btn.style.background = '#10b981';
+                setTimeout(() => {
+                    btn.innerText = originalText;
+                    btn.style.background = '';
+                }, 2000);
+            } catch (err) {
+                console.error('Failed to copy: ', err);
+            }
+        }
+    </script>
+</body>
+
+</html>

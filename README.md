@@ -9,6 +9,7 @@ A modular, multi-user JSON mock backend service built natively with Node.js and 
 - **Full CRUD API**: RESTful endpoints with built-in pagination limits (`?page=1&limit=5`).
 - **Storage Quotas & Cleanup**: Enforces a strict 5MB quota per UUID and cleans up any UUID directories unused for 7+ days automatically.
 - **Role-Based Authentication**: Secure JWT/Token session authentication dictating `admin` vs `viewer` modification rights natively.
+- **Custom Mock Endpoints**: Define specific, optional paths for CRUD operations (e.g. `GET /users/list`) on a per-table basis via the dashboard.
 - **Persistence & Admin Dashboard**: Natively runs on SQLite/File-System and provides an embedded visual dashboard at `/admin/dashboard`.
 
 ## Local Execution (CLI Support)
@@ -59,6 +60,11 @@ The project includes built-in stress and load testing scripts to simulate high-t
 
 1. **Stress Test (Autocannon - Ultra Fast)**
    Runs a high-throughput raw connection test dynamically creating a user, generating a token, and hammering the DB.
+
+    ```bash
+   npm test
+   ```
+
    ```bash
    npm run test:stress
    ```

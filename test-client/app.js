@@ -182,15 +182,25 @@ function renderStorage() {
                 </div>
             </div>
             <div style="display:flex; flex-direction:column; gap:0.5rem;">
-                ${Object.keys(tables).map(t => `
-                    <div class="nav-item table-item" onclick="viewTable('${name}', '${t}')" style="justify-content:space-between; margin:0; position:relative">
-                        <span>${t}</span>
-                        <div style="display:flex; align-items:center; gap:0.5rem">
-                            <span class="badge badge-get">${tables[t].count}</span>
-                            <button class="btn-icon-delete" onclick="event.stopPropagation(); deleteTable('${name}', '${t}')">×</button>
+                ${Object.keys(tables).map(t => {
+            const hasCustom = tables[t].customPaths && Object.keys(tables[t].customPaths).length > 0;
+            return `
+                        <div class="nav-item table-item" onclick="viewTable('${name}', '${t}')" style="justify-content:space-between; margin:0; position:relative; flex-wrap: wrap; height: auto; min-height: 48px;">
+                            <div style="display:flex; flex-direction:column; gap:2px;">
+                                <span>${t}</span>
+                                ${hasCustom ? `
+                                    <div style="font-size:0.6rem; color:var(--primary); font-weight:700; opacity:0.8">
+                                        Custom: ${Object.keys(tables[t].customPaths).join(', ').toUpperCase()}
+                                    </div>
+                                ` : ''}
+                            </div>
+                            <div style="display:flex; align-items:center; gap:0.5rem">
+                                <span class="badge badge-get">${tables[t].count}</span>
+                                <button class="btn-icon-delete" onclick="event.stopPropagation(); deleteTable('${name}', '${t}')">×</button>
+                            </div>
                         </div>
-                    </div>
-                `).join('')}
+                    `;
+        }).join('')}
             </div>
         `;
         grid.appendChild(card);
@@ -207,12 +217,51 @@ function openCreateTableModal(container) {
             <label>Table Name</label>
             <input type="text" id="new-table-name" placeholder="e.g. orders">
         </div>
+        <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+            <p style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
+                Custom Endpoints (Optional)
+                <span style="font-weight: 400; font-size: 0.65rem; color: var(--primary); cursor: pointer;" onclick="document.getElementById('custom-endpoints-group').classList.toggle('hidden')">Show/Hide</span>
+            </p>
+            <div id="custom-endpoints-group" class="hidden">
+                <div class="form-group" style="margin-bottom: 0.5rem;">
+                    <label style="font-size: 0.65rem;">GET Path (e.g. /users/list)</label>
+                    <input type="text" id="custom-path-get" placeholder="/none" style="font-size: 0.8rem; height: 32px;">
+                </div>
+                <div class="form-group" style="margin-bottom: 0.5rem;">
+                    <label style="font-size: 0.65rem;">POST Path (e.g. /users/create)</label>
+                    <input type="text" id="custom-path-post" placeholder="/none" style="font-size: 0.8rem; height: 32px;">
+                </div>
+                <div class="form-group" style="margin-bottom: 0.5rem;">
+                    <label style="font-size: 0.65rem;">PUT Path</label>
+                    <input type="text" id="custom-path-put" placeholder="/none" style="font-size: 0.8rem; height: 32px;">
+                </div>
+                <div class="form-group" style="margin-bottom: 0.5rem;">
+                    <label style="font-size: 0.65rem;">DELETE Path</label>
+                    <input type="text" id="custom-path-delete" placeholder="/none" style="font-size: 0.8rem; height: 32px;">
+                </div>
+            </div>
+        </div>
     `;
 
     document.getElementById('modal-confirm').onclick = async () => {
         const table = document.getElementById('new-table-name').value;
         if (!table) return;
-        await api(`/${container}/${table}`, { method: 'POST', body: JSON.stringify({ _init: true }) });
+
+        const _customPaths = {};
+        const pGet = document.getElementById('custom-path-get').value;
+        const pPost = document.getElementById('custom-path-post').value;
+        const pPut = document.getElementById('custom-path-put').value;
+        const pDelete = document.getElementById('custom-path-delete').value;
+
+        if (pGet) _customPaths.get = pGet;
+        if (pPost) _customPaths.post = pPost;
+        if (pPut) _customPaths.put = pPut;
+        if (pDelete) _customPaths.delete = pDelete;
+
+        await api(`/${container}/${table}`, {
+            method: 'POST',
+            body: JSON.stringify({ _init: true, _customPaths })
+        });
         closeModal();
         fetchIntrospect();
     };
@@ -248,8 +297,22 @@ async function deleteContainer(name) {
 // --- Table Data Actions ---
 function viewTable(container, table) {
     state.activeContext = { container, table };
+    const dataObj = state.introspection.storage[container][table];
+    const hasCustom = dataObj.customPaths && Object.keys(dataObj.customPaths).length > 0;
+
     document.getElementById('table-title').innerText = `Table: ${table}`;
-    document.getElementById('table-subtitle').innerText = `Container: ${container}`;
+    document.getElementById('table-subtitle').innerHTML = `
+        Container: ${container}
+        ${hasCustom ? `
+            <div style="margin-top:0.5rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
+                ${Object.entries(dataObj.customPaths).map(([m, p]) => `
+                    <span style="font-size:0.6rem; padding:2px 6px; background:rgba(59,130,246,0.1); color:var(--primary); border-radius:4px; font-weight:700;">
+                        ${m.toUpperCase()}: ${p}
+                    </span>
+                `).join('')}
+            </div>
+        ` : ''}
+    `;
 
     // Add Schema Management Buttons to Header
     const headerActions = document.querySelector('#view-data .card-header div:last-child');

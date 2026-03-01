@@ -205,6 +205,68 @@ app.use(cors());
 app.use(express.json({ limit: '5mb' }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// --- Custom Mock Route Resolution (Top Level) ---
+app.use(async (req, res, next) => {
+    // Skip well-known management routes
+    const pathsToSkip = [
+        '/introspect', '/auth', '/containers', '/admin', '/dev-admin',
+        '/crud-example', '/favicon.ico', '/index.html', '/app.js', '/style.css',
+        '/assets', '/public', '/reg.log', '/docs'
+    ];
+    if (pathsToSkip.some(p => req.path.startsWith(p))) return next();
+
+    // In top-level, we need to extract userId and token manually to check custom paths
+    let userId = req.headers['x-user-id'];
+    if (!userId) {
+        const token = req.headers['authorization']?.split(' ')[1] || req.cookies.auth_token;
+        if (token) {
+            try {
+                const decoded = jwt.verify(token, JWT_SECRET);
+                userId = decoded.userId;
+            } catch (e) { }
+        }
+    }
+
+    if (!userId) return next();
+
+    try {
+        const containerNames = await Storage.listContainers(userId);
+        for (const container of containerNames) {
+            const data = await Storage.readContainer(userId, container);
+            if (!data) continue;
+
+            for (const [table, tableData] of Object.entries(data)) {
+                if (tableData && typeof tableData === 'object' && !Array.isArray(tableData)) {
+                    if (tableData._customPaths) {
+                        const method = req.method.toLowerCase();
+                        let customPath = tableData._customPaths[method];
+                        if (!customPath) continue;
+                        if (!customPath.startsWith('/')) customPath = '/' + customPath;
+
+                        let targetUrl = null;
+                        if (req.path === customPath) {
+                            targetUrl = `/${container}/${table}`;
+                        } else if (req.path.startsWith(customPath + '/')) {
+                            const id = req.path.slice(customPath.length + 1);
+                            targetUrl = `/${container}/${table}/${id}`;
+                        }
+
+                        if (targetUrl) {
+                            const query = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+                            req.url = targetUrl + query;
+                            // Re-routing happens internally here
+                            return next();
+                        }
+                    }
+                }
+            }
+        }
+    } catch (err) {
+        // Silently fail
+    }
+    next();
+});
 // Consolidating all dashboard assets to /public
 
 // JWT Authentication Middleware
@@ -255,7 +317,8 @@ const authenticate = async (req, res, next) => {
         '/crud-xample', // Failsafe for user typo
         '/index.html',
         '/app.js',
-        '/style.css'
+        '/style.css',
+        '/docs'
     ];
 
     if (authPaths.includes(normalizedPath) || normalizedPath.startsWith('/public/')) {
@@ -386,7 +449,14 @@ app.get('/crud-example', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Route to serve Modern Documentation
+app.get('/docs', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'docs.html'));
+});
+
 app.use(authenticate);
+
+// Custom resolution moved to top for better re-routing
 
 // ----------------------------------------------------
 // Data Routes (Simplified for brevity)
@@ -413,6 +483,7 @@ app.get('/introspect', async (req, res) => {
                         count: Array.isArray(tableRecords) ? tableRecords.length : 0,
                         schema_preview: Array.isArray(tableRecords) && tableRecords.length > 0 ? Object.keys(tableRecords[0]) : [],
                         schema: isStructured ? records._schema : null,
+                        customPaths: isStructured ? records._customPaths : null,
                         data: tableRecords
                     };
                 }
@@ -673,6 +744,7 @@ app.patch('/:container/:table/schema', async (req, res) => {
 });
 
 app.patch('/:container/:table/schema-definition', async (req, res) => {
+    if (req.userRole !== 'admin') return res.status(403).json({ error: 'Forbidden: Admin role required for mutation' });
     const { container, table } = req.params;
     const { name, type, remove } = req.body;
 
@@ -684,6 +756,9 @@ app.patch('/:container/:table/schema-definition', async (req, res) => {
         if (remove) {
             delete data[table]._schema[remove];
         } else if (name && type) {
+            if (data[table]._schema[name]) {
+                return res.status(400).json({ error: `Column '${name}' already exists in table '${table}'` });
+            }
             data[table]._schema[name] = type;
         }
     } else {
@@ -770,18 +845,38 @@ app.get('/:container/:table/:id', async (req, res) => {
 });
 
 app.post('/:container/:table', async (req, res) => {
+    if (req.userRole !== 'admin') return res.status(403).json({ error: 'Forbidden: Admin role required for mutation' });
     const { container, table } = req.params;
     let data = await Storage.readContainer(req.userId, container) || {};
 
     if (!data[table] && req.body._schema) {
-        data[table] = { _schema: req.body._schema, records: [] };
+        data[table] = {
+            _schema: req.body._schema,
+            _customPaths: req.body._customPaths || {},
+            records: []
+        };
         delete req.body._schema;
+        delete req.body._customPaths;
         if (Object.keys(req.body).length === 0) {
             await Storage.writeContainer(req.userId, container, data);
             return res.status(201).json({ message: 'Table initialized with schema' });
         }
     } else if (!data[table]) {
+        if (req.body._init) {
+            data[table] = {
+                _schema: req.body._schema || {},
+                _customPaths: req.body._customPaths || {},
+                records: []
+            };
+            delete req.body._schema;
+            delete req.body._customPaths;
+            delete req.body._init;
+            await Storage.writeContainer(req.userId, container, data);
+            return res.status(201).json({ message: 'Table initialized' });
+        }
         data[table] = [];
+    } else if (req.body._init) {
+        return res.status(400).json({ error: `Table '${table}' already exists in container '${container}'` });
     }
 
     const isStructured = !Array.isArray(data[table]);
@@ -803,6 +898,7 @@ app.post('/:container/:table', async (req, res) => {
 });
 
 app.put('/:container/:table/:id', async (req, res) => {
+    if (req.userRole !== 'admin') return res.status(403).json({ error: 'Forbidden: Admin role required for mutation' });
     const { container, table, id } = req.params;
     const data = await Storage.readContainer(req.userId, container);
 
@@ -828,6 +924,7 @@ app.put('/:container/:table/:id', async (req, res) => {
 });
 
 app.delete('/:container/:table/:id', async (req, res) => {
+    if (req.userRole !== 'admin') return res.status(403).json({ error: 'Forbidden: Admin role required for mutation' });
     const { container, table, id } = req.params;
     const data = await Storage.readContainer(req.userId, container);
 

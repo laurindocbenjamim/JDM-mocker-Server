@@ -59,4 +59,25 @@ else
 fi
 
 echo "------------------------------------------------"
+# 4. Custom Mock Endpoint Test
+echo "Step 4: Testing Custom Mock Endpoint..."
+# 4a. Create table with custom GET path
+curl -s -X POST "$BASE_URL/$CONTAINER/custom-table" \
+  -H "x-user-id: $USER_ID" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "_init": true, "_customPaths": { "get": "/api/my-custom-data" } }' > /dev/null
+
+# 4b. Access via custom path
+CUSTOM_RES=$(curl -s -X GET "$BASE_URL/api/my-custom-data" \
+  -H "x-user-id: $USER_ID" \
+  -H "Authorization: Bearer $TOKEN")
+
+if [[ $CUSTOM_RES == "[]" ]]; then
+    echo "✅ Custom path resolution successful! Mapped to empty table."
+else
+    echo "❌ Custom path resolution failed! Response: $CUSTOM_RES"
+fi
+
+echo "------------------------------------------------"
 echo "🚀 Test Completed."

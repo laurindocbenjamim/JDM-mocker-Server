@@ -18,6 +18,29 @@ function init() {
     if (state.userId && (state.token || state.apiKey)) {
         fetchIntrospect();
     }
+
+    // Initialize Mobile UI
+    const overlay = document.createElement('div');
+    overlay.id = 'menu-overlay';
+    overlay.onclick = toggleMenu;
+    document.body.appendChild(overlay);
+
+    const mobileHeader = document.createElement('div');
+    mobileHeader.className = 'mobile-header';
+    mobileHeader.innerHTML = `
+        <div class="brand" style="margin-bottom:0">
+            <img src="/assets/logo.png" alt="JDM Mocker Logo" style="width: 24px; height: 24px;">
+            <span>JDM MOCKER</span>
+        </div>
+        <button class="btn-icon" onclick="toggleMenu()" style="margin-left:auto; background:none; border:none; color:var(--primary); cursor:pointer;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="3" y1="12" x2="21" y2="12"></line>
+                <line x1="3" y1="6" x2="21" y2="6"></line>
+                <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+        </button>
+    `;
+    document.body.insertBefore(mobileHeader, document.body.firstChild);
 }
 
 // --- Navigation ---
@@ -29,6 +52,17 @@ function showView(viewId) {
     // Find active nav item
     if (viewId === 'auth') document.querySelector('[onclick*="auth"]').classList.add('active');
     if (viewId === 'storage') document.getElementById('nav-storage').classList.add('active');
+
+    if (window.innerWidth <= 992) {
+        toggleMenu(); // Close menu on navigation
+    }
+}
+
+function toggleMenu() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('menu-overlay');
+    sidebar.classList.toggle('menu-open');
+    overlay.classList.toggle('active');
 }
 
 // --- API Helpers ---
@@ -182,15 +216,25 @@ function renderStorage() {
                 </div>
             </div>
             <div style="display:flex; flex-direction:column; gap:0.5rem;">
-                ${Object.keys(tables).map(t => `
-                    <div class="nav-item table-item" onclick="viewTable('${name}', '${t}')" style="justify-content:space-between; margin:0; position:relative">
-                        <span>${t}</span>
-                        <div style="display:flex; align-items:center; gap:0.5rem">
-                            <span class="badge badge-get">${tables[t].count}</span>
-                            <button class="btn-icon-delete" onclick="event.stopPropagation(); deleteTable('${name}', '${t}')">×</button>
+                ${Object.keys(tables).map(t => {
+            const hasCustom = tables[t].customPaths && Object.keys(tables[t].customPaths).length > 0;
+            return `
+                        <div class="nav-item table-item" onclick="viewTable('${name}', '${t}')" style="justify-content:space-between; margin:0; position:relative; flex-wrap: wrap; height: auto; min-height: 48px;">
+                            <div style="display:flex; flex-direction:column; gap:2px;">
+                                <span>${t}</span>
+                                ${hasCustom ? `
+                                    <div style="font-size:0.6rem; color:var(--primary); font-weight:700; opacity:0.8">
+                                        Custom: ${Object.keys(tables[t].customPaths).join(', ').toUpperCase()}
+                                    </div>
+                                ` : ''}
+                            </div>
+                            <div style="display:flex; align-items:center; gap:0.5rem">
+                                <span class="badge badge-get">${tables[t].count}</span>
+                                <button class="btn-icon-delete" onclick="event.stopPropagation(); deleteTable('${name}', '${t}')">×</button>
+                            </div>
                         </div>
-                    </div>
-                `).join('')}
+                    `;
+        }).join('')}
             </div>
         `;
         grid.appendChild(card);
@@ -207,12 +251,56 @@ function openCreateTableModal(container) {
             <label>Table Name</label>
             <input type="text" id="new-table-name" placeholder="e.g. orders">
         </div>
+        <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+            <p style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
+                Custom Endpoints (Optional)
+                <span style="font-weight: 400; font-size: 0.65rem; color: var(--primary); cursor: pointer;" onclick="document.getElementById('custom-endpoints-group').classList.toggle('hidden')">Show/Hide</span>
+            </p>
+            <div id="custom-endpoints-group" class="hidden">
+                <div class="form-group" style="margin-bottom: 0.5rem;">
+                    <label style="font-size: 0.65rem;">GET Path (e.g. /users/list)</label>
+                    <input type="text" id="custom-path-get" placeholder="/none" style="font-size: 0.8rem; height: 32px;">
+                </div>
+                <div class="form-group" style="margin-bottom: 0.5rem;">
+                    <label style="font-size: 0.65rem;">POST Path (e.g. /users/create)</label>
+                    <input type="text" id="custom-path-post" placeholder="/none" style="font-size: 0.8rem; height: 32px;">
+                </div>
+                <div class="form-group" style="margin-bottom: 0.5rem;">
+                    <label style="font-size: 0.65rem;">PUT Path</label>
+                    <input type="text" id="custom-path-put" placeholder="/none" style="font-size: 0.8rem; height: 32px;">
+                </div>
+                <div class="form-group" style="margin-bottom: 0.5rem;">
+                    <label style="font-size: 0.65rem;">DELETE Path</label>
+                    <input type="text" id="custom-path-delete" placeholder="/none" style="font-size: 0.8rem; height: 32px;">
+                </div>
+            </div>
+        </div>
     `;
 
     document.getElementById('modal-confirm').onclick = async () => {
         const table = document.getElementById('new-table-name').value;
         if (!table) return;
-        await api(`/${container}/${table}`, { method: 'POST', body: JSON.stringify({ _init: true }) });
+
+        const _customPaths = {};
+        const pGet = document.getElementById('custom-path-get').value;
+        const pPost = document.getElementById('custom-path-post').value;
+        const pPut = document.getElementById('custom-path-put').value;
+        const pDelete = document.getElementById('custom-path-delete').value;
+
+        if (pGet) _customPaths.get = pGet;
+        if (pPost) _customPaths.post = pPost;
+        if (pPut) _customPaths.put = pPut;
+        if (pDelete) _customPaths.delete = pDelete;
+
+        if (state.introspection.storage[container] && state.introspection.storage[container][table]) {
+            alert(`Table '${table}' already exists in container '${container}'`);
+            return;
+        }
+
+        await api(`/${container}/${table}`, {
+            method: 'POST',
+            body: JSON.stringify({ _init: true, _customPaths })
+        });
         closeModal();
         fetchIntrospect();
     };
@@ -231,6 +319,11 @@ async function createContainer() {
 
     if (!container || !table) return;
 
+    if (state.introspection.storage[container]) {
+        showToast(`Container '${container}' already exists`, 'warning');
+        return;
+    }
+
     await api(`/${container}/${table}`, {
         method: 'POST',
         body: JSON.stringify({ _init: true }) // Dummy data to create container/table
@@ -248,8 +341,22 @@ async function deleteContainer(name) {
 // --- Table Data Actions ---
 function viewTable(container, table) {
     state.activeContext = { container, table };
+    const dataObj = state.introspection.storage[container][table];
+    const hasCustom = dataObj.customPaths && Object.keys(dataObj.customPaths).length > 0;
+
     document.getElementById('table-title').innerText = `Table: ${table}`;
-    document.getElementById('table-subtitle').innerText = `Container: ${container}`;
+    document.getElementById('table-subtitle').innerHTML = `
+        Container: ${container}
+        ${hasCustom ? `
+            <div style="margin-top:0.5rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
+                ${Object.entries(dataObj.customPaths).map(([m, p]) => `
+                    <span style="font-size:0.6rem; padding:2px 6px; background:rgba(59,130,246,0.1); color:var(--primary); border-radius:4px; font-weight:700;">
+                        ${m.toUpperCase()}: ${p}
+                    </span>
+                `).join('')}
+            </div>
+        ` : ''}
+    `;
 
     // Add Schema Management Buttons to Header
     const headerActions = document.querySelector('#view-data .card-header div:last-child');
@@ -260,7 +367,45 @@ function viewTable(container, table) {
     `;
 
     renderTable();
+    renderEndpoints(container, table);
     showView('data');
+}
+
+function renderEndpoints(container, table) {
+    const dataObj = state.introspection.storage[container][table];
+    const customPaths = dataObj.customPaths || {};
+    const list = document.getElementById('endpoints-list');
+    list.innerHTML = '';
+
+    const host = window.location.origin;
+    const endpoints = [];
+
+    // Standard Endpoints
+    endpoints.push({ method: 'GET', path: `/${container}/${table}` });
+    endpoints.push({ method: 'POST', path: `/${container}/${table}` });
+    endpoints.push({ method: 'GET', path: `/${container}/${table}/:id` });
+    endpoints.push({ method: 'PATCH', path: `/${container}/${table}/:id` });
+    endpoints.push({ method: 'DELETE', path: `/${container}/${table}/:id` });
+
+    // Custom Endpoints
+    Object.entries(customPaths).forEach(([method, path]) => {
+        endpoints.push({ method: method.toUpperCase(), path, isCustom: true });
+    });
+
+    endpoints.forEach(ep => {
+        const item = document.createElement('div');
+        item.className = 'endpoint-item';
+        const fullUrl = `${host}${ep.path}`;
+
+        item.innerHTML = `
+            <div class="endpoint-info">
+                <span class="endpoint-method badge-${ep.method.toLowerCase()}">${ep.method}</span>
+                <span class="endpoint-path">${ep.path} ${ep.isCustom ? '<span style="color:var(--primary); font-size:0.6rem;">(CUSTOM)</span>' : ''}</span>
+            </div>
+            <button class="copy-btn" onclick="copyToClipboard('${fullUrl}')">Copy URL</button>
+        `;
+        list.appendChild(item);
+    });
 }
 
 async function openSchemaModal() {
@@ -330,6 +475,13 @@ async function addColumn() {
     errorEl.classList.add('hidden');
 
     const { container, table } = state.activeContext;
+    const dataObj = state.introspection.storage[container][table];
+
+    if (dataObj.schema && dataObj.schema[colName]) {
+        errorEl.innerText = `Column '${colName}' already exists`;
+        errorEl.classList.remove('hidden');
+        return;
+    }
 
     const { status, data } = await api(`/${container}/${table}/schema-definition`, {
         method: 'PATCH',
@@ -550,6 +702,14 @@ async function saveRecord(id) {
 function closeModal() {
     document.getElementById('modal-container').classList.add('hidden');
     document.getElementById('modal-confirm').style.display = 'inline-flex';
+}
+
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        showToast('Copied to clipboard!');
+    }).catch(err => {
+        showToast('Failed to copy', 'error');
+    });
 }
 
 // --- Identity UI ---

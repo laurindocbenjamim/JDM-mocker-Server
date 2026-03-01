@@ -22,7 +22,21 @@ async function runStressTest() {
         const logData = await logRes.json();
         token = logData.token;
 
-        console.log(`✅ Provisioned User: ${userId}`);
+        // Initialize a custom path for the stress test
+        await fetch(`${baseUrl}/stress-db/custom-table`, {
+            method: 'POST',
+            headers: {
+                'x-user-id': userId,
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                _init: true,
+                _customPaths: { get: '/api/custom-stress-check' }
+            })
+        });
+
+        console.log(`✅ Provisioned User: ${userId} with custom endpoint`);
     } catch (e) {
         console.error('❌ Failed to provision test user. Make sure the server is running.', e.message);
         process.exit(1);
@@ -56,6 +70,14 @@ async function runStressTest() {
             {
                 method: 'GET',
                 path: '/stress-db/records',
+                headers: {
+                    'x-user-id': userId,
+                    'Authorization': `Bearer ${token}`
+                }
+            },
+            {
+                method: 'GET',
+                path: '/api/custom-stress-check',
                 headers: {
                     'x-user-id': userId,
                     'Authorization': `Bearer ${token}`
